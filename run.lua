@@ -1,8 +1,6 @@
 
 local h5lua = require 'h5lua'
 
---for k,v in pairs(h5lua) do print(k,v) end
-
 local def = h5lua.H5P_DEFAULT
 local trunc = h5lua.H5F_ACC_TRUNC
 local double = h5lua.H5T_NATIVE_DOUBLE
