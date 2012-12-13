@@ -1,10 +1,12 @@
 
---local buffer = require 'buffer'
 local h5lua = require 'h5lua'
+
+--for k,v in pairs(h5lua) do print(k,v) end
 
 local def = h5lua.H5P_DEFAULT
 local trunc = h5lua.H5F_ACC_TRUNC
 local double = h5lua.H5T_NATIVE_DOUBLE
+
 local fid = h5lua.H5Fcreate("outfile.h5", trunc, def, def)
 local sid = h5lua.H5Screate(h5lua.H5S_SCALAR)
 local did = h5lua.H5Dcreate(fid, "dataset", double, sid, def, def, def)
