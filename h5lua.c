@@ -6,12 +6,6 @@
 #include "lualib.h"
 #include "lauxlib.h"
 
-typedef struct hsize_t_arr
-{
-  hsize_t *data;
-  size_t size;
-} hsize_t_arr;
-
 
 // -----------------------------------------------------------------------------
 // hid_t
@@ -44,45 +38,35 @@ static int h5lua_new_herr_t(lua_State *L)
 // -----------------------------------------------------------------------------
 // hsize_t_arr
 // -----------------------------------------------------------------------------
-static void lh5_push_hsize_t_arr(lua_State *L, hsize_t_arr hs)
+static void lh5_push_hsize_t_arr(lua_State *L, hsize_t *hs, int N)
 {
-  hsize_t_arr *lhs = (hsize_t_arr*) lua_newuserdata(L, sizeof(hsize_t_arr));
+  memcpy(lua_newuserdata(L, sizeof(hsize_t) * N), hs, sizeof(hsize_t) * N);
   luaL_setmetatable(L, "HDF5::hsize_t_arr");
-  lhs->size = hs.size;
-  lhs->data = (hsize_t*) malloc(sizeof(hsize_t) * hs.size);
-  memcpy(lhs->data, hs.data, sizeof(hsize_t) * hs.size);
 }
 static int h5lua_new_hsize_t_arr(lua_State *L)
 {
   luaL_checktype(L, 1, LUA_TTABLE);
   int n = 0, N = lua_rawlen(L, 1);
-  hsize_t_arr hs;
-  hs.size = N;
-  hs.data = (hsize_t*) malloc(sizeof(hsize_t) * N);
+  hsize_t *hs = (hsize_t*) malloc(sizeof(hsize_t) * N);
 
   while (n < N) {
     lua_rawgeti(L, 1, n+1);
-    hs.data[n] = lua_tounsigned(L, -1);
+    hs[n] = lua_tounsigned(L, -1);
     lua_pop(L, 1);
     ++n;
   }
 
-  lh5_push_hsize_t_arr(L, hs);
-  free(hs.data);
+  lh5_push_hsize_t_arr(L, hs, N);
+  free(hs);
   return 1;
-}
-static int h5lua_hsize_t_arr__gc(lua_State *L)
-{
-  hsize_t_arr *lhs = (hsize_t_arr*) luaL_checkudata(L, 1, "HDF5::hsize_t_arr");
-  free(lhs->data);
-  return 0;
 }
 static int h5lua_hsize_t_arr__index(lua_State *L)
 {
-  hsize_t_arr *lhs = (hsize_t_arr*) luaL_checkudata(L, 1, "HDF5::hsize_t_arr");
+  hsize_t *lhs = (hsize_t*) luaL_checkudata(L, 1, "HDF5::hsize_t_arr");
   int n = luaL_checkunsigned(L, 2);
-  if (n < lhs->size) {
-    lua_pushnumber(L, lhs->data[n]);
+  int N = lua_rawlen(L, 1) / sizeof(hsize_t);
+  if (n < N) {
+    lua_pushnumber(L, lhs[n]);
   }
   else {
     lua_pushnil(L);
@@ -192,7 +176,7 @@ int luaopen_h5lua(lua_State *L)
                             {NULL, NULL}};
 
   luaL_Reg hsize_t_arr_meta[] = {{"__index", h5lua_hsize_t_arr__index},
-				 {"__gc", h5lua_hsize_t_arr__gc},
+				 //{"__gc", h5lua_hsize_t_arr__gc},
 				 {NULL, NULL}};
 
   luaL_newmetatable(L, "HDF5::hid_t");
