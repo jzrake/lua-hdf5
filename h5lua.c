@@ -38,7 +38,7 @@ static int h5lua_new_herr_t(lua_State *L)
 // -----------------------------------------------------------------------------
 // hsize_t_arr
 // -----------------------------------------------------------------------------
-static void lh5_push_hsize_t_arr(lua_State *L, hsize_t *hs, int N)
+static void lh5_push_hsize_t_arr(lua_State *L, hsize_t *hs, unsigned int N)
 {
   memcpy(lua_newuserdata(L, sizeof(hsize_t) * N), hs, sizeof(hsize_t) * N);
   luaL_setmetatable(L, "HDF5::hsize_t_arr");
@@ -63,13 +63,27 @@ static int h5lua_new_hsize_t_arr(lua_State *L)
 static int h5lua_hsize_t_arr__index(lua_State *L)
 {
   hsize_t *lhs = (hsize_t*) luaL_checkudata(L, 1, "HDF5::hsize_t_arr");
-  int n = luaL_checkunsigned(L, 2);
-  int N = lua_rawlen(L, 1) / sizeof(hsize_t);
+  unsigned int n = luaL_checkunsigned(L, 2);
+  unsigned int N = lua_rawlen(L, 1) / sizeof(hsize_t);
   if (n < N) {
     lua_pushnumber(L, lhs[n]);
   }
   else {
     lua_pushnil(L);
+  }
+  return 1;
+}
+static int h5lua_hsize_t_arr__newindex(lua_State *L)
+{
+  hsize_t *lhs = (hsize_t*) luaL_checkudata(L, 1, "HDF5::hsize_t_arr");
+  unsigned int n = luaL_checkunsigned(L, 2);
+  hsize_t val = luaL_checkunsigned(L, 3);
+  unsigned int N = lua_rawlen(L, 1) / sizeof(hsize_t);
+  if (n < N) {
+    lhs[n] = val;
+  }
+  else {
+    luaL_error(L, "index %d out of range on array of length %d", n, N);
   }
   return 1;
 }
@@ -176,7 +190,7 @@ int luaopen_h5lua(lua_State *L)
                             {NULL, NULL}};
 
   luaL_Reg hsize_t_arr_meta[] = {{"__index", h5lua_hsize_t_arr__index},
-				 //{"__gc", h5lua_hsize_t_arr__gc},
+				 {"__newindex", h5lua_hsize_t_arr__newindex},
 				 {NULL, NULL}};
 
   luaL_newmetatable(L, "HDF5::hid_t");

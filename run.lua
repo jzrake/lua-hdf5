@@ -17,3 +17,7 @@ local hs = h5lua.new_hsize_t_arr{12,16,24}
 assert(hs[0] == 12)
 assert(hs[1] == 16)
 assert(hs[2] == 24)
+hs[0] = 8
+assert(hs[0] == 8)
+assert(not pcall(function() hs[-1] = 8 end))
+assert(not pcall(function() hs[3] = 8 end))
