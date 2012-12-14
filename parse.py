@@ -77,7 +77,7 @@ class FunctionPrototype(object):
                 get_lua_args.append(
                     "const hsize_t *%s = (hsize_t*) luaL_checkudata("
                     "L, %d, \"HDF5::hsize_t_arr\");" % (name, n+1))
-            elif t in ["H5S_class_t", "H5S_seloper_t"]:
+            elif t in ["H5S_class_t", "H5S_seloper_t", "H5R_type_t"]:
                 get_lua_args.append(
                     "int %s = luaL_checkinteger(L, %d);" % (
                         name, n + 1))
@@ -201,9 +201,8 @@ extras = {
 # ----------------------------------------------------------
 wrap = open("h5funcs.c", "w")
 for s in "ADEFGILOPRSTZ":
-    if s in "RZ": continue
     header_functions(s, outfile=wrap, extras=extras.get(s, []))
-#header_functions("S", outfile=wrap, extras=extras.get("S", []))
+#header_functions("Z", outfile=wrap, extras=extras.get("Z", []))
 
 print "%d functions wrapped successfully" % len(FunctionPrototype.passed)
 #print '\t'+'\n\t'.join(FunctionPrototype.passed)

@@ -1484,6 +1484,41 @@ static luaL_Reg H5P_funcs[] = {
   {"H5Pset_copy_object", h5lua_H5Pset_copy_object},
   {NULL,NULL}};
 
+static int h5lua_H5Rcreate(lua_State *L)
+{
+  void *ref = lua_touserdata(L, 1); luaL_checktype(L, 1, LUA_TUSERDATA);
+  hid_t loc_id = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  const char *name = luaL_checkstring(L, 3);
+  int ref_type = luaL_checkinteger(L, 4);
+  hid_t space_id = *((hid_t*) luaL_checkudata(L, 5, "HDF5::hid_t"));
+  herr_t res = H5Rcreate(ref, loc_id, name, ref_type, space_id);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Rdereference(lua_State *L)
+{
+  hid_t dataset = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  int ref_type = luaL_checkinteger(L, 2);
+  const void *ref = lua_touserdata(L, 3); luaL_checktype(L, 3, LUA_TUSERDATA);
+  hid_t res = H5Rdereference(dataset, ref_type, ref);
+  lh5_push_hid_t(L, res);
+  return 1;
+}
+static int h5lua_H5Rget_region(lua_State *L)
+{
+  hid_t dataset = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  int ref_type = luaL_checkinteger(L, 2);
+  const void *ref = lua_touserdata(L, 3); luaL_checktype(L, 3, LUA_TUSERDATA);
+  hid_t res = H5Rget_region(dataset, ref_type, ref);
+  lh5_push_hid_t(L, res);
+  return 1;
+}
+static luaL_Reg H5R_funcs[] = {
+  {"H5Rcreate", h5lua_H5Rcreate},
+  {"H5Rdereference", h5lua_H5Rdereference},
+  {"H5Rget_region", h5lua_H5Rget_region},
+  {NULL,NULL}};
+
 static int h5lua_H5Screate(lua_State *L)
 {
   int type = luaL_checkinteger(L, 1);
@@ -2017,4 +2052,15 @@ static luaL_Reg H5T_funcs[] = {
   {"H5Tconvert", h5lua_H5Tconvert},
   {"H5Tcommit1", h5lua_H5Tcommit1},
   {"H5Topen1", h5lua_H5Topen1},
+  {NULL,NULL}};
+
+static int h5lua_H5Zregister(lua_State *L)
+{
+  const void *cls = lua_touserdata(L, 1); luaL_checktype(L, 1, LUA_TUSERDATA);
+  herr_t res = H5Zregister(cls);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static luaL_Reg H5Z_funcs[] = {
+  {"H5Zregister", h5lua_H5Zregister},
   {NULL,NULL}};
