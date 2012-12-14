@@ -34,7 +34,7 @@ class FunctionPrototype(object):
 
     def write(self, outfile):
         get_lua_args = [ ]
-        if "get" in self.func_name or self.func_name in dont_wrap:
+        if self.func_name in dont_wrap:
             self.failed.append(self.func_name)
             raise ValueError("function %s could not be wrapped: "
                              "output char*" %
@@ -51,9 +51,6 @@ class FunctionPrototype(object):
                 get_lua_args.append(
                     "const void *%s = lua_touserdata(L, %d); "
                     "luaL_checktype(L, %d, LUA_TUSERDATA);" % (name, n+1, n+1))
-            elif t == "char *":
-                get_lua_args.append(
-                    "const char *%s = luaL_checkstring(L, %d);" % (name, n+1))
             elif t == "const char *":
                 get_lua_args.append(
                     "const char *%s = luaL_checkstring(L, %d);" % (name, n+1))
