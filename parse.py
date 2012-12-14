@@ -1,7 +1,14 @@
 
 import re
 
+dont_wrap = ["H5Tenum_nameof",
+             "H5Scombine_select",
+             "H5Sselect_select",
+             "H5Scombine_hyperslab"]
+
 class FunctionPrototype(object):
+    passed = [ ]
+    failed = [ ]
     def __init__(self, prototype):
         target = re.compile(r".*H5_DLL (\w+)\s+(\w+)(.*)")
         argtype = re.compile(r"(.*)\b(\w+)")
@@ -15,6 +22,8 @@ class FunctionPrototype(object):
         for a in argstr[1:-1].split(','):
             ma = argtype.match(a.strip())
             self.arg_list.append([g.strip() for g in ma.groups()])
+            if "[]" in a:
+                self.arg_list[-1][0] += " *"
 
     def show(self):
         print "function:", self.func_name
@@ -25,38 +34,69 @@ class FunctionPrototype(object):
 
     def write(self, outfile):
         get_lua_args = [ ]
+        if "get" in self.func_name or self.func_name in dont_wrap:
+            self.failed.append(self.func_name)
+            raise ValueError("function %s could not be wrapped: "
+                             "output char*" %
+                             self.func_name)
         for n,arg in enumerate(self.arg_list):
             t, name = arg
-            if t == "const char *":
-                get_lua_args.append(
-                    """const char *%s = luaL_checkstring(L, %d);""" % (
-                        name, n + 1)
-                    )
-            elif t == "hid_t":
-                get_lua_args.append(
-                    """hid_t %s = *((hid_t*) luaL_checkudata(L, %d, "HDF5::hid_t"));""" % (
-                        name, n + 1))
-            elif t == "unsigned":
-                get_lua_args.append(
-                    """unsigned %s = luaL_checkunsigned(L, %d);""" % (
-                        name, n + 1))
+            if False:
+                pass
             elif t == "void *":
                 get_lua_args.append(
-                    """void *%s = lua_touserdata(L, %d); luaL_checktype(L, %d, LUA_TUSERDATA);""" % (
-                        name, n + 1, n + 1))
-            elif t == "H5S_class_t":
+                    "void *%s = lua_touserdata(L, %d); "
+                    "luaL_checktype(L, %d, LUA_TUSERDATA);" % (name, n+1, n+1))
+            elif t == "const void *":
                 get_lua_args.append(
-                    """int %s = luaL_checkinteger(L, %d);""" % (
+                    "const void *%s = lua_touserdata(L, %d); "
+                    "luaL_checktype(L, %d, LUA_TUSERDATA);" % (name, n+1, n+1))
+            elif t == "char *":
+                get_lua_args.append(
+                    "const char *%s = luaL_checkstring(L, %d);" % (name, n+1))
+            elif t == "const char *":
+                get_lua_args.append(
+                    "const char *%s = luaL_checkstring(L, %d);" % (name, n+1))
+            elif t == "hid_t":
+                get_lua_args.append(
+                    "hid_t %s = *((hid_t*) luaL_checkudata("
+                    "L, %d, \"HDF5::hid_t\"));" % (name, n+1))
+            elif t == "unsigned":
+                get_lua_args.append(
+                    "unsigned %s = luaL_checkunsigned(L, %d);" % (name, n+1))
+            elif t == "size_t":
+                get_lua_args.append(
+                    "size_t %s = luaL_checkunsigned(L, %d);" % (
+                        name, n + 1))
+            elif t == "hsize_t":
+                get_lua_args.append(
+                    "hsize_t %s = luaL_checkunsigned(L, %d);" % (
+                        name, n + 1))
+            elif t == "hsize_t *":
+                get_lua_args.append(
+                    "hsize_t *%s = (hsize_t*) luaL_checkudata("
+                    "L, %d, \"HDF5::hsize_t_arr\");" % (name, n+1))
+            elif t == "const hsize_t *":
+                get_lua_args.append(
+                    "const hsize_t *%s = (hsize_t*) luaL_checkudata("
+                    "L, %d, \"HDF5::hsize_t_arr\");" % (name, n+1))
+            elif t in ["H5S_class_t", "H5S_seloper_t"]:
+                get_lua_args.append(
+                    "int %s = luaL_checkinteger(L, %d);" % (
                         name, n + 1))
             else:
+                self.failed.append(self.func_name)
                 raise ValueError("function %s could not be wrapped: "
                                  "arg type(s) not known" %
                                  self.func_name)
         if self.ret_type == "hid_t":
-            ret_statement = """lh5_push_hid_t(L, res);"""
+            ret_statement = "lh5_push_hid_t(L, res);"
         elif self.ret_type == "herr_t":
-            ret_statement = """lh5_push_herr_t(L, res);"""
+            ret_statement = "lh5_push_herr_t(L, res);"
+        elif self.ret_type in ["ssize_t", "size_t", "htri_t", "int"]:
+            ret_statement = "lua_pushnumber(L, res);"
         else:
+            self.failed.append(self.func_name)
             raise ValueError("function %s could not be wrapped: "
                              "return type not known" %
                              self.func_name)
@@ -74,13 +114,26 @@ static int h5lua_%(func_name)s(lua_State *L)
         'arg_list': ', '.join([a[1] for a in self.arg_list]),
         'lua_args': '\n  '.join(get_lua_args)})
         outfile.write(func)
+        self.passed.append(self.func_name)
+
+
+def stripcomments(text):
+    def replacer(match):
+        s = match.group(0)
+        if s.startswith('/'): return ""
+        else: return s
+    pattern = re.compile(
+        r'//.*?$|/\*.*?\*/|\'(?:\\.|[^\\\'])*\'|"(?:\\.|[^\\"])*"',
+        re.DOTALL | re.MULTILINE)
+    return re.sub(pattern, replacer, text)
 
 
 def header_functions(prefix, outfile=None, extras=[]):
     f = open("/Library/Science/hdf5/include/H5%spublic.h" % prefix)
     passed = [ ]
     failed = [ ]
-    for line in f.read().split(';') + extras:
+    raw = stripcomments(f.read())
+    for line in raw.split(';') + extras:
         line = "".join([c for c in line if c not in ["\n","\t"]])
         try:
             proto = FunctionPrototype(line)
@@ -89,7 +142,7 @@ def header_functions(prefix, outfile=None, extras=[]):
                 proto.write(outfile)
                 passed.append(proto.func_name)
             except ValueError as e:
-                print e
+                #print e
                 failed.append(proto.func_name)
         except AttributeError as e:
             pass
@@ -153,6 +206,12 @@ wrap = open("h5funcs.c", "w")
 for s in "ADEFGILOPRSTZ":
     if s in "RZ": continue
     header_functions(s, outfile=wrap, extras=extras.get(s, []))
+#header_functions("S", outfile=wrap, extras=extras.get("S", []))
+
+print "%d functions wrapped successfully" % len(FunctionPrototype.passed)
+#print '\t'+'\n\t'.join(FunctionPrototype.passed)
+print "%d functions not wrapped successfully" % len(FunctionPrototype.failed)
+#print '\t'+'\n\t'.join(FunctionPrototype.failed)
 
 
 # For collecting constants from header files:

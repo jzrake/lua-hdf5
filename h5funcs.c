@@ -45,6 +45,15 @@ static int h5lua_H5Aopen_by_name(lua_State *L)
   lh5_push_hid_t(L, res);
   return 1;
 }
+static int h5lua_H5Awrite(lua_State *L)
+{
+  hid_t attr_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hid_t type_id = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  const void *buf = lua_touserdata(L, 3); luaL_checktype(L, 3, LUA_TUSERDATA);
+  herr_t res = H5Awrite(attr_id, type_id, buf);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
 static int h5lua_H5Aread(lua_State *L)
 {
   hid_t attr_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -59,27 +68,6 @@ static int h5lua_H5Aclose(lua_State *L)
   hid_t attr_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   herr_t res = H5Aclose(attr_id);
   lh5_push_herr_t(L, res);
-  return 1;
-}
-static int h5lua_H5Aget_space(lua_State *L)
-{
-  hid_t attr_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Aget_space(attr_id);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
-static int h5lua_H5Aget_type(lua_State *L)
-{
-  hid_t attr_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Aget_type(attr_id);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
-static int h5lua_H5Aget_create_plist(lua_State *L)
-{
-  hid_t attr_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Aget_create_plist(attr_id);
-  lh5_push_hid_t(L, res);
   return 1;
 }
 static int h5lua_H5Arename(lua_State *L)
@@ -120,6 +108,24 @@ static int h5lua_H5Adelete_by_name(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Aexists(lua_State *L)
+{
+  hid_t obj_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const char *attr_name = luaL_checkstring(L, 2);
+  htri_t res = H5Aexists(obj_id, attr_name);
+  lua_pushnumber(L, res);
+  return 1;
+}
+static int h5lua_H5Aexists_by_name(lua_State *L)
+{
+  hid_t obj_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const char *obj_name = luaL_checkstring(L, 2);
+  const char *attr_name = luaL_checkstring(L, 3);
+  hid_t lapl_id = *((hid_t*) luaL_checkudata(L, 4, "HDF5::hid_t"));
+  htri_t res = H5Aexists_by_name(obj_id, obj_name, attr_name, lapl_id);
+  lua_pushnumber(L, res);
+  return 1;
+}
 static int h5lua_H5Acreate1(lua_State *L)
 {
   hid_t loc_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -152,15 +158,15 @@ static luaL_Reg H5A_funcs[] = {
   {"H5Acreate_by_name", h5lua_H5Acreate_by_name},
   {"H5Aopen", h5lua_H5Aopen},
   {"H5Aopen_by_name", h5lua_H5Aopen_by_name},
+  {"H5Awrite", h5lua_H5Awrite},
   {"H5Aread", h5lua_H5Aread},
   {"H5Aclose", h5lua_H5Aclose},
-  {"H5Aget_space", h5lua_H5Aget_space},
-  {"H5Aget_type", h5lua_H5Aget_type},
-  {"H5Aget_create_plist", h5lua_H5Aget_create_plist},
   {"H5Arename", h5lua_H5Arename},
   {"H5Arename_by_name", h5lua_H5Arename_by_name},
   {"H5Adelete", h5lua_H5Adelete},
   {"H5Adelete_by_name", h5lua_H5Adelete_by_name},
+  {"H5Aexists", h5lua_H5Aexists},
+  {"H5Aexists_by_name", h5lua_H5Aexists_by_name},
   {"H5Acreate1", h5lua_H5Acreate1},
   {"H5Aopen_name", h5lua_H5Aopen_name},
   {"H5Aopen_idx", h5lua_H5Aopen_idx},
@@ -206,32 +212,28 @@ static int h5lua_H5Dclose(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
-static int h5lua_H5Dget_space(lua_State *L)
+static int h5lua_H5Dread(lua_State *L)
 {
   hid_t dset_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Dget_space(dset_id);
-  lh5_push_hid_t(L, res);
+  hid_t mem_type_id = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  hid_t mem_space_id = *((hid_t*) luaL_checkudata(L, 3, "HDF5::hid_t"));
+  hid_t file_space_id = *((hid_t*) luaL_checkudata(L, 4, "HDF5::hid_t"));
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 5, "HDF5::hid_t"));
+  void *buf = lua_touserdata(L, 6); luaL_checktype(L, 6, LUA_TUSERDATA);
+  herr_t res = H5Dread(dset_id, mem_type_id, mem_space_id, file_space_id, plist_id, buf);
+  lh5_push_herr_t(L, res);
   return 1;
 }
-static int h5lua_H5Dget_type(lua_State *L)
+static int h5lua_H5Dwrite(lua_State *L)
 {
   hid_t dset_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Dget_type(dset_id);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
-static int h5lua_H5Dget_create_plist(lua_State *L)
-{
-  hid_t dset_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Dget_create_plist(dset_id);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
-static int h5lua_H5Dget_access_plist(lua_State *L)
-{
-  hid_t dset_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Dget_access_plist(dset_id);
-  lh5_push_hid_t(L, res);
+  hid_t mem_type_id = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  hid_t mem_space_id = *((hid_t*) luaL_checkudata(L, 3, "HDF5::hid_t"));
+  hid_t file_space_id = *((hid_t*) luaL_checkudata(L, 4, "HDF5::hid_t"));
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 5, "HDF5::hid_t"));
+  const void *buf = lua_touserdata(L, 6); luaL_checktype(L, 6, LUA_TUSERDATA);
+  herr_t res = H5Dwrite(dset_id, mem_type_id, mem_space_id, file_space_id, plist_id, buf);
+  lh5_push_herr_t(L, res);
   return 1;
 }
 static int h5lua_H5Dvlen_reclaim(lua_State *L)
@@ -241,6 +243,25 @@ static int h5lua_H5Dvlen_reclaim(lua_State *L)
   hid_t plist_id = *((hid_t*) luaL_checkudata(L, 3, "HDF5::hid_t"));
   void *buf = lua_touserdata(L, 4); luaL_checktype(L, 4, LUA_TUSERDATA);
   herr_t res = H5Dvlen_reclaim(type_id, space_id, plist_id, buf);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Dfill(lua_State *L)
+{
+  const void *fill = lua_touserdata(L, 1); luaL_checktype(L, 1, LUA_TUSERDATA);
+  hid_t fill_type = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  void *buf = lua_touserdata(L, 3); luaL_checktype(L, 3, LUA_TUSERDATA);
+  hid_t buf_type = *((hid_t*) luaL_checkudata(L, 4, "HDF5::hid_t"));
+  hid_t space = *((hid_t*) luaL_checkudata(L, 5, "HDF5::hid_t"));
+  herr_t res = H5Dfill(fill, fill_type, buf, buf_type, space);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Dset_extent(lua_State *L)
+{
+  hid_t dset_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const hsize_t *size = (hsize_t*) luaL_checkudata(L, 2, "HDF5::hsize_t_arr");
+  herr_t res = H5Dset_extent(dset_id, size);
   lh5_push_herr_t(L, res);
   return 1;
 }
@@ -270,6 +291,14 @@ static int h5lua_H5Dopen1(lua_State *L)
   lh5_push_hid_t(L, res);
   return 1;
 }
+static int h5lua_H5Dextend(lua_State *L)
+{
+  hid_t dset_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const hsize_t *size = (hsize_t*) luaL_checkudata(L, 2, "HDF5::hsize_t_arr");
+  herr_t res = H5Dextend(dset_id, size);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
 static int h5lua_H5Dcreate(lua_State *L)
 {
   hid_t loc_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -297,14 +326,15 @@ static luaL_Reg H5D_funcs[] = {
   {"H5Dcreate_anon", h5lua_H5Dcreate_anon},
   {"H5Dopen2", h5lua_H5Dopen2},
   {"H5Dclose", h5lua_H5Dclose},
-  {"H5Dget_space", h5lua_H5Dget_space},
-  {"H5Dget_type", h5lua_H5Dget_type},
-  {"H5Dget_create_plist", h5lua_H5Dget_create_plist},
-  {"H5Dget_access_plist", h5lua_H5Dget_access_plist},
+  {"H5Dread", h5lua_H5Dread},
+  {"H5Dwrite", h5lua_H5Dwrite},
   {"H5Dvlen_reclaim", h5lua_H5Dvlen_reclaim},
+  {"H5Dfill", h5lua_H5Dfill},
+  {"H5Dset_extent", h5lua_H5Dset_extent},
   {"H5Ddebug", h5lua_H5Ddebug},
   {"H5Dcreate1", h5lua_H5Dcreate1},
   {"H5Dopen1", h5lua_H5Dopen1},
+  {"H5Dextend", h5lua_H5Dextend},
   {"H5Dcreate", h5lua_H5Dcreate},
   {"H5Dopen", h5lua_H5Dopen},
   {NULL,NULL}};
@@ -346,6 +376,14 @@ static int h5lua_H5Eset_current_stack(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Epop(lua_State *L)
+{
+  hid_t err_stack = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t count = luaL_checkunsigned(L, 2);
+  herr_t res = H5Epop(err_stack, count);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
 static int h5lua_H5Eclear2(lua_State *L)
 {
   hid_t err_stack = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -359,9 +397,17 @@ static luaL_Reg H5E_funcs[] = {
   {"H5Eclose_msg", h5lua_H5Eclose_msg},
   {"H5Eclose_stack", h5lua_H5Eclose_stack},
   {"H5Eset_current_stack", h5lua_H5Eset_current_stack},
+  {"H5Epop", h5lua_H5Epop},
   {"H5Eclear2", h5lua_H5Eclear2},
   {NULL,NULL}};
 
+static int h5lua_H5Fis_hdf5(lua_State *L)
+{
+  const char *filename = luaL_checkstring(L, 1);
+  htri_t res = H5Fis_hdf5(filename);
+  lua_pushnumber(L, res);
+  return 1;
+}
 static int h5lua_H5Fcreate(lua_State *L)
 {
   const char *filename = luaL_checkstring(L, 1);
@@ -395,20 +441,6 @@ static int h5lua_H5Fclose(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
-static int h5lua_H5Fget_create_plist(lua_State *L)
-{
-  hid_t file_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Fget_create_plist(file_id);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
-static int h5lua_H5Fget_access_plist(lua_State *L)
-{
-  hid_t file_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Fget_access_plist(file_id);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
 static int h5lua_H5Fmount(lua_State *L)
 {
   hid_t loc = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -435,12 +467,11 @@ static int h5lua_H5Freset_mdc_hit_rate_stats(lua_State *L)
   return 1;
 }
 static luaL_Reg H5F_funcs[] = {
+  {"H5Fis_hdf5", h5lua_H5Fis_hdf5},
   {"H5Fcreate", h5lua_H5Fcreate},
   {"H5Fopen", h5lua_H5Fopen},
   {"H5Freopen", h5lua_H5Freopen},
   {"H5Fclose", h5lua_H5Fclose},
-  {"H5Fget_create_plist", h5lua_H5Fget_create_plist},
-  {"H5Fget_access_plist", h5lua_H5Fget_access_plist},
   {"H5Fmount", h5lua_H5Fmount},
   {"H5Funmount", h5lua_H5Funmount},
   {"H5Freset_mdc_hit_rate_stats", h5lua_H5Freset_mdc_hit_rate_stats},
@@ -475,18 +506,20 @@ static int h5lua_H5Gopen2(lua_State *L)
   lh5_push_hid_t(L, res);
   return 1;
 }
-static int h5lua_H5Gget_create_plist(lua_State *L)
-{
-  hid_t group_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Gget_create_plist(group_id);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
 static int h5lua_H5Gclose(lua_State *L)
 {
   hid_t group_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   herr_t res = H5Gclose(group_id);
   lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Gcreate1(lua_State *L)
+{
+  hid_t loc_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const char *name = luaL_checkstring(L, 2);
+  size_t size_hint = luaL_checkunsigned(L, 3);
+  hid_t res = H5Gcreate1(loc_id, name, size_hint);
+  lh5_push_hid_t(L, res);
   return 1;
 }
 static int h5lua_H5Gopen1(lua_State *L)
@@ -537,8 +570,8 @@ static luaL_Reg H5G_funcs[] = {
   {"H5Gcreate2", h5lua_H5Gcreate2},
   {"H5Gcreate_anon", h5lua_H5Gcreate_anon},
   {"H5Gopen2", h5lua_H5Gopen2},
-  {"H5Gget_create_plist", h5lua_H5Gget_create_plist},
   {"H5Gclose", h5lua_H5Gclose},
+  {"H5Gcreate1", h5lua_H5Gcreate1},
   {"H5Gopen1", h5lua_H5Gopen1},
   {"H5Gmove", h5lua_H5Gmove},
   {"H5Gmove2", h5lua_H5Gmove2},
@@ -546,15 +579,31 @@ static luaL_Reg H5G_funcs[] = {
   {"H5Gset_comment", h5lua_H5Gset_comment},
   {NULL,NULL}};
 
-static int h5lua_H5Iget_file_id(lua_State *L)
+static int h5lua_H5Iinc_ref(lua_State *L)
 {
   hid_t id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Iget_file_id(id);
-  lh5_push_hid_t(L, res);
+  int res = H5Iinc_ref(id);
+  lua_pushnumber(L, res);
+  return 1;
+}
+static int h5lua_H5Idec_ref(lua_State *L)
+{
+  hid_t id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  int res = H5Idec_ref(id);
+  lua_pushnumber(L, res);
+  return 1;
+}
+static int h5lua_H5Iis_valid(lua_State *L)
+{
+  hid_t id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  htri_t res = H5Iis_valid(id);
+  lua_pushnumber(L, res);
   return 1;
 }
 static luaL_Reg H5I_funcs[] = {
-  {"H5Iget_file_id", h5lua_H5Iget_file_id},
+  {"H5Iinc_ref", h5lua_H5Iinc_ref},
+  {"H5Idec_ref", h5lua_H5Idec_ref},
+  {"H5Iis_valid", h5lua_H5Iis_valid},
   {NULL,NULL}};
 
 static int h5lua_H5Lmove(lua_State *L)
@@ -613,6 +662,15 @@ static int h5lua_H5Ldelete(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Lexists(lua_State *L)
+{
+  hid_t loc_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const char *name = luaL_checkstring(L, 2);
+  hid_t lapl_id = *((hid_t*) luaL_checkudata(L, 3, "HDF5::hid_t"));
+  htri_t res = H5Lexists(loc_id, name, lapl_id);
+  lua_pushnumber(L, res);
+  return 1;
+}
 static int h5lua_H5Lcreate_external(lua_State *L)
 {
   const char *file_name = luaL_checkstring(L, 1);
@@ -631,6 +689,7 @@ static luaL_Reg H5L_funcs[] = {
   {"H5Lcreate_hard", h5lua_H5Lcreate_hard},
   {"H5Lcreate_soft", h5lua_H5Lcreate_soft},
   {"H5Ldelete", h5lua_H5Ldelete},
+  {"H5Lexists", h5lua_H5Lexists},
   {"H5Lcreate_external", h5lua_H5Lcreate_external},
   {NULL,NULL}};
 
@@ -732,27 +791,28 @@ static int h5lua_H5Pset(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
-static int h5lua_H5Pget_class(lua_State *L)
-{
-  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Pget_class(plist_id);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
-static int h5lua_H5Pget_class_parent(lua_State *L)
-{
-  hid_t pclass_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Pget_class_parent(pclass_id);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
-static int h5lua_H5Pget(lua_State *L)
+static int h5lua_H5Pexist(lua_State *L)
 {
   hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   const char *name = luaL_checkstring(L, 2);
-  void *value = lua_touserdata(L, 3); luaL_checktype(L, 3, LUA_TUSERDATA);
-  herr_t res = H5Pget(plist_id, name, value);
-  lh5_push_herr_t(L, res);
+  htri_t res = H5Pexist(plist_id, name);
+  lua_pushnumber(L, res);
+  return 1;
+}
+static int h5lua_H5Pequal(lua_State *L)
+{
+  hid_t id1 = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hid_t id2 = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  htri_t res = H5Pequal(id1, id2);
+  lua_pushnumber(L, res);
+  return 1;
+}
+static int h5lua_H5Pisa_class(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hid_t pclass_id = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  htri_t res = H5Pisa_class(plist_id, pclass_id);
+  lua_pushnumber(L, res);
   return 1;
 }
 static int h5lua_H5Pcopy_prop(lua_State *L)
@@ -818,6 +878,23 @@ static int h5lua_H5Pset_attr_creation_order(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Pset_userblock(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hsize_t size = luaL_checkunsigned(L, 2);
+  herr_t res = H5Pset_userblock(plist_id, size);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_sizes(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t sizeof_addr = luaL_checkunsigned(L, 2);
+  size_t sizeof_size = luaL_checkunsigned(L, 3);
+  herr_t res = H5Pset_sizes(plist_id, sizeof_addr, sizeof_size);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
 static int h5lua_H5Pset_sym_k(lua_State *L)
 {
   hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -862,11 +939,30 @@ static int h5lua_H5Pset_shared_mesg_phase_change(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
-static int h5lua_H5Pget_driver(lua_State *L)
+static int h5lua_H5Pset_alignment(lua_State *L)
+{
+  hid_t fapl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hsize_t threshold = luaL_checkunsigned(L, 2);
+  hsize_t alignment = luaL_checkunsigned(L, 3);
+  herr_t res = H5Pset_alignment(fapl_id, threshold, alignment);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_driver(lua_State *L)
 {
   hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Pget_driver(plist_id);
-  lh5_push_hid_t(L, res);
+  hid_t driver_id = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  const void *driver_info = lua_touserdata(L, 3); luaL_checktype(L, 3, LUA_TUSERDATA);
+  herr_t res = H5Pset_driver(plist_id, driver_id, driver_info);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_family_offset(lua_State *L)
+{
+  hid_t fapl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hsize_t offset = luaL_checkunsigned(L, 2);
+  herr_t res = H5Pset_family_offset(fapl_id, offset);
+  lh5_push_herr_t(L, res);
   return 1;
 }
 static int h5lua_H5Pset_gc_references(lua_State *L)
@@ -875,6 +971,37 @@ static int h5lua_H5Pset_gc_references(lua_State *L)
   unsigned gc_ref = luaL_checkunsigned(L, 2);
   herr_t res = H5Pset_gc_references(fapl_id, gc_ref);
   lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_meta_block_size(lua_State *L)
+{
+  hid_t fapl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hsize_t size = luaL_checkunsigned(L, 2);
+  herr_t res = H5Pset_meta_block_size(fapl_id, size);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_sieve_buf_size(lua_State *L)
+{
+  hid_t fapl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t size = luaL_checkunsigned(L, 2);
+  herr_t res = H5Pset_sieve_buf_size(fapl_id, size);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_small_data_block_size(lua_State *L)
+{
+  hid_t fapl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hsize_t size = luaL_checkunsigned(L, 2);
+  herr_t res = H5Pset_small_data_block_size(fapl_id, size);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pall_filters_avail(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  htri_t res = H5Pall_filters_avail(plist_id);
+  lua_pushnumber(L, res);
   return 1;
 }
 static int h5lua_H5Pset_deflate(lua_State *L)
@@ -915,11 +1042,46 @@ static int h5lua_H5Pset_fletcher32(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Pset_fill_value(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hid_t type_id = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  const void *value = lua_touserdata(L, 3); luaL_checktype(L, 3, LUA_TUSERDATA);
+  herr_t res = H5Pset_fill_value(plist_id, type_id, value);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_buffer(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t size = luaL_checkunsigned(L, 2);
+  void *tconv = lua_touserdata(L, 3); luaL_checktype(L, 3, LUA_TUSERDATA);
+  void *bkg = lua_touserdata(L, 4); luaL_checktype(L, 4, LUA_TUSERDATA);
+  herr_t res = H5Pset_buffer(plist_id, size, tconv, bkg);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_hyper_vector_size(lua_State *L)
+{
+  hid_t fapl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t size = luaL_checkunsigned(L, 2);
+  herr_t res = H5Pset_hyper_vector_size(fapl_id, size);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
 static int h5lua_H5Pset_create_intermediate_group(lua_State *L)
 {
   hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   unsigned crt_intmd = luaL_checkunsigned(L, 2);
   herr_t res = H5Pset_create_intermediate_group(plist_id, crt_intmd);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_local_heap_size_hint(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t size_hint = luaL_checkunsigned(L, 2);
+  herr_t res = H5Pset_local_heap_size_hint(plist_id, size_hint);
   lh5_push_herr_t(L, res);
   return 1;
 }
@@ -949,19 +1111,20 @@ static int h5lua_H5Pset_link_creation_order(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Pset_nlinks(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t nlinks = luaL_checkunsigned(L, 2);
+  herr_t res = H5Pset_nlinks(plist_id, nlinks);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
 static int h5lua_H5Pset_elink_prefix(lua_State *L)
 {
   hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   const char *prefix = luaL_checkstring(L, 2);
   herr_t res = H5Pset_elink_prefix(plist_id, prefix);
   lh5_push_herr_t(L, res);
-  return 1;
-}
-static int h5lua_H5Pget_elink_fapl(lua_State *L)
-{
-  hid_t lapl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Pget_elink_fapl(lapl_id);
-  lh5_push_hid_t(L, res);
   return 1;
 }
 static int h5lua_H5Pset_elink_fapl(lua_State *L)
@@ -991,9 +1154,9 @@ static int h5lua_H5Pset_copy_object(lua_State *L)
 static luaL_Reg H5P_funcs[] = {
   {"H5Pcreate", h5lua_H5Pcreate},
   {"H5Pset", h5lua_H5Pset},
-  {"H5Pget_class", h5lua_H5Pget_class},
-  {"H5Pget_class_parent", h5lua_H5Pget_class_parent},
-  {"H5Pget", h5lua_H5Pget},
+  {"H5Pexist", h5lua_H5Pexist},
+  {"H5Pequal", h5lua_H5Pequal},
+  {"H5Pisa_class", h5lua_H5Pisa_class},
   {"H5Pcopy_prop", h5lua_H5Pcopy_prop},
   {"H5Premove", h5lua_H5Premove},
   {"H5Punregister", h5lua_H5Punregister},
@@ -1002,24 +1165,36 @@ static luaL_Reg H5P_funcs[] = {
   {"H5Pcopy", h5lua_H5Pcopy},
   {"H5Pset_attr_phase_change", h5lua_H5Pset_attr_phase_change},
   {"H5Pset_attr_creation_order", h5lua_H5Pset_attr_creation_order},
+  {"H5Pset_userblock", h5lua_H5Pset_userblock},
+  {"H5Pset_sizes", h5lua_H5Pset_sizes},
   {"H5Pset_sym_k", h5lua_H5Pset_sym_k},
   {"H5Pset_istore_k", h5lua_H5Pset_istore_k},
   {"H5Pset_shared_mesg_nindexes", h5lua_H5Pset_shared_mesg_nindexes},
   {"H5Pset_shared_mesg_index", h5lua_H5Pset_shared_mesg_index},
   {"H5Pset_shared_mesg_phase_change", h5lua_H5Pset_shared_mesg_phase_change},
-  {"H5Pget_driver", h5lua_H5Pget_driver},
+  {"H5Pset_alignment", h5lua_H5Pset_alignment},
+  {"H5Pset_driver", h5lua_H5Pset_driver},
+  {"H5Pset_family_offset", h5lua_H5Pset_family_offset},
   {"H5Pset_gc_references", h5lua_H5Pset_gc_references},
+  {"H5Pset_meta_block_size", h5lua_H5Pset_meta_block_size},
+  {"H5Pset_sieve_buf_size", h5lua_H5Pset_sieve_buf_size},
+  {"H5Pset_small_data_block_size", h5lua_H5Pset_small_data_block_size},
+  {"H5Pall_filters_avail", h5lua_H5Pall_filters_avail},
   {"H5Pset_deflate", h5lua_H5Pset_deflate},
   {"H5Pset_szip", h5lua_H5Pset_szip},
   {"H5Pset_shuffle", h5lua_H5Pset_shuffle},
   {"H5Pset_nbit", h5lua_H5Pset_nbit},
   {"H5Pset_fletcher32", h5lua_H5Pset_fletcher32},
+  {"H5Pset_fill_value", h5lua_H5Pset_fill_value},
+  {"H5Pset_buffer", h5lua_H5Pset_buffer},
+  {"H5Pset_hyper_vector_size", h5lua_H5Pset_hyper_vector_size},
   {"H5Pset_create_intermediate_group", h5lua_H5Pset_create_intermediate_group},
+  {"H5Pset_local_heap_size_hint", h5lua_H5Pset_local_heap_size_hint},
   {"H5Pset_link_phase_change", h5lua_H5Pset_link_phase_change},
   {"H5Pset_est_link_info", h5lua_H5Pset_est_link_info},
   {"H5Pset_link_creation_order", h5lua_H5Pset_link_creation_order},
+  {"H5Pset_nlinks", h5lua_H5Pset_nlinks},
   {"H5Pset_elink_prefix", h5lua_H5Pset_elink_prefix},
-  {"H5Pget_elink_fapl", h5lua_H5Pget_elink_fapl},
   {"H5Pset_elink_fapl", h5lua_H5Pset_elink_fapl},
   {"H5Pset_elink_acc_flags", h5lua_H5Pset_elink_acc_flags},
   {"H5Pset_copy_object", h5lua_H5Pset_copy_object},
@@ -1046,6 +1221,42 @@ static int h5lua_H5Sclose(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Sdecode(lua_State *L)
+{
+  const void *buf = lua_touserdata(L, 1); luaL_checktype(L, 1, LUA_TUSERDATA);
+  hid_t res = H5Sdecode(buf);
+  lh5_push_hid_t(L, res);
+  return 1;
+}
+static int h5lua_H5Sis_simple(lua_State *L)
+{
+  hid_t space_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  htri_t res = H5Sis_simple(space_id);
+  lua_pushnumber(L, res);
+  return 1;
+}
+static int h5lua_H5Sselect_hyperslab(lua_State *L)
+{
+  hid_t space_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  int op = luaL_checkinteger(L, 2);
+  const hsize_t *start = (hsize_t*) luaL_checkudata(L, 3, "HDF5::hsize_t_arr");
+  const hsize_t *_stride = (hsize_t*) luaL_checkudata(L, 4, "HDF5::hsize_t_arr");
+  const hsize_t *count = (hsize_t*) luaL_checkudata(L, 5, "HDF5::hsize_t_arr");
+  const hsize_t *_block = (hsize_t*) luaL_checkudata(L, 6, "HDF5::hsize_t_arr");
+  herr_t res = H5Sselect_hyperslab(space_id, op, start, _stride, count, _block);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Sselect_elements(lua_State *L)
+{
+  hid_t space_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  int op = luaL_checkinteger(L, 2);
+  size_t num_elem = luaL_checkunsigned(L, 3);
+  const hsize_t *coord = (hsize_t*) luaL_checkudata(L, 4, "HDF5::hsize_t_arr");
+  herr_t res = H5Sselect_elements(space_id, op, num_elem, coord);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
 static int h5lua_H5Sset_extent_none(lua_State *L)
 {
   hid_t space_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -1059,6 +1270,14 @@ static int h5lua_H5Sextent_copy(lua_State *L)
   hid_t src_id = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
   herr_t res = H5Sextent_copy(dst_id, src_id);
   lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Sextent_equal(lua_State *L)
+{
+  hid_t sid1 = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hid_t sid2 = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  htri_t res = H5Sextent_equal(sid1, sid2);
+  lua_pushnumber(L, res);
   return 1;
 }
 static int h5lua_H5Sselect_all(lua_State *L)
@@ -1075,14 +1294,27 @@ static int h5lua_H5Sselect_none(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Sselect_valid(lua_State *L)
+{
+  hid_t spaceid = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  htri_t res = H5Sselect_valid(spaceid);
+  lua_pushnumber(L, res);
+  return 1;
+}
 static luaL_Reg H5S_funcs[] = {
   {"H5Screate", h5lua_H5Screate},
   {"H5Scopy", h5lua_H5Scopy},
   {"H5Sclose", h5lua_H5Sclose},
+  {"H5Sdecode", h5lua_H5Sdecode},
+  {"H5Sis_simple", h5lua_H5Sis_simple},
+  {"H5Sselect_hyperslab", h5lua_H5Sselect_hyperslab},
+  {"H5Sselect_elements", h5lua_H5Sselect_elements},
   {"H5Sset_extent_none", h5lua_H5Sset_extent_none},
   {"H5Sextent_copy", h5lua_H5Sextent_copy},
+  {"H5Sextent_equal", h5lua_H5Sextent_equal},
   {"H5Sselect_all", h5lua_H5Sselect_all},
   {"H5Sselect_none", h5lua_H5Sselect_none},
+  {"H5Sselect_valid", h5lua_H5Sselect_valid},
   {NULL,NULL}};
 
 static int h5lua_H5Tcopy(lua_State *L)
@@ -1097,6 +1329,14 @@ static int h5lua_H5Tclose(lua_State *L)
   hid_t type_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   herr_t res = H5Tclose(type_id);
   lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Tequal(lua_State *L)
+{
+  hid_t type1_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hid_t type2_id = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  htri_t res = H5Tequal(type1_id, type2_id);
+  lua_pushnumber(L, res);
   return 1;
 }
 static int h5lua_H5Tlock(lua_State *L)
@@ -1137,11 +1377,28 @@ static int h5lua_H5Tcommit_anon(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
-static int h5lua_H5Tget_create_plist(lua_State *L)
+static int h5lua_H5Tcommitted(lua_State *L)
 {
   hid_t type_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Tget_create_plist(type_id);
+  htri_t res = H5Tcommitted(type_id);
+  lua_pushnumber(L, res);
+  return 1;
+}
+static int h5lua_H5Tdecode(lua_State *L)
+{
+  const void *buf = lua_touserdata(L, 1); luaL_checktype(L, 1, LUA_TUSERDATA);
+  hid_t res = H5Tdecode(buf);
   lh5_push_hid_t(L, res);
+  return 1;
+}
+static int h5lua_H5Tinsert(lua_State *L)
+{
+  hid_t parent_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const char *name = luaL_checkstring(L, 2);
+  size_t offset = luaL_checkunsigned(L, 3);
+  hid_t member_id = *((hid_t*) luaL_checkudata(L, 4, "HDF5::hid_t"));
+  herr_t res = H5Tinsert(parent_id, name, offset, member_id);
+  lh5_push_herr_t(L, res);
   return 1;
 }
 static int h5lua_H5Tpack(lua_State *L)
@@ -1158,10 +1415,37 @@ static int h5lua_H5Tenum_create(lua_State *L)
   lh5_push_hid_t(L, res);
   return 1;
 }
+static int h5lua_H5Tenum_insert(lua_State *L)
+{
+  hid_t type = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const char *name = luaL_checkstring(L, 2);
+  const void *value = lua_touserdata(L, 3); luaL_checktype(L, 3, LUA_TUSERDATA);
+  herr_t res = H5Tenum_insert(type, name, value);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Tenum_valueof(lua_State *L)
+{
+  hid_t type = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const char *name = luaL_checkstring(L, 2);
+  void *value = lua_touserdata(L, 3); luaL_checktype(L, 3, LUA_TUSERDATA);
+  herr_t res = H5Tenum_valueof(type, name, value);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
 static int h5lua_H5Tvlen_create(lua_State *L)
 {
   hid_t base_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   hid_t res = H5Tvlen_create(base_id);
+  lh5_push_hid_t(L, res);
+  return 1;
+}
+static int h5lua_H5Tarray_create2(lua_State *L)
+{
+  hid_t base_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  unsigned ndims = luaL_checkunsigned(L, 2);
+  const hsize_t *dim = (hsize_t*) luaL_checkudata(L, 3, "HDF5::hsize_t_arr");
+  hid_t res = H5Tarray_create2(base_id, ndims, dim);
   lh5_push_hid_t(L, res);
   return 1;
 }
@@ -1173,19 +1457,75 @@ static int h5lua_H5Tset_tag(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
-static int h5lua_H5Tget_super(lua_State *L)
-{
-  hid_t type = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  hid_t res = H5Tget_super(type);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
-static int h5lua_H5Tget_member_type(lua_State *L)
+static int h5lua_H5Tis_variable_str(lua_State *L)
 {
   hid_t type_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  unsigned membno = luaL_checkunsigned(L, 2);
-  hid_t res = H5Tget_member_type(type_id, membno);
-  lh5_push_hid_t(L, res);
+  htri_t res = H5Tis_variable_str(type_id);
+  lua_pushnumber(L, res);
+  return 1;
+}
+static int h5lua_H5Tset_size(lua_State *L)
+{
+  hid_t type_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t size = luaL_checkunsigned(L, 2);
+  herr_t res = H5Tset_size(type_id, size);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Tset_precision(lua_State *L)
+{
+  hid_t type_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t prec = luaL_checkunsigned(L, 2);
+  herr_t res = H5Tset_precision(type_id, prec);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Tset_offset(lua_State *L)
+{
+  hid_t type_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t offset = luaL_checkunsigned(L, 2);
+  herr_t res = H5Tset_offset(type_id, offset);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Tset_fields(lua_State *L)
+{
+  hid_t type_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t spos = luaL_checkunsigned(L, 2);
+  size_t epos = luaL_checkunsigned(L, 3);
+  size_t esize = luaL_checkunsigned(L, 4);
+  size_t mpos = luaL_checkunsigned(L, 5);
+  size_t msize = luaL_checkunsigned(L, 6);
+  herr_t res = H5Tset_fields(type_id, spos, epos, esize, mpos, msize);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Tset_ebias(lua_State *L)
+{
+  hid_t type_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  size_t ebias = luaL_checkunsigned(L, 2);
+  herr_t res = H5Tset_ebias(type_id, ebias);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Tcompiler_conv(lua_State *L)
+{
+  hid_t src_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hid_t dst_id = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  htri_t res = H5Tcompiler_conv(src_id, dst_id);
+  lua_pushnumber(L, res);
+  return 1;
+}
+static int h5lua_H5Tconvert(lua_State *L)
+{
+  hid_t src_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hid_t dst_id = *((hid_t*) luaL_checkudata(L, 2, "HDF5::hid_t"));
+  size_t nelmts = luaL_checkunsigned(L, 3);
+  void *buf = lua_touserdata(L, 4); luaL_checktype(L, 4, LUA_TUSERDATA);
+  void *background = lua_touserdata(L, 5); luaL_checktype(L, 5, LUA_TUSERDATA);
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 6, "HDF5::hid_t"));
+  herr_t res = H5Tconvert(src_id, dst_id, nelmts, buf, background, plist_id);
+  lh5_push_herr_t(L, res);
   return 1;
 }
 static int h5lua_H5Tcommit1(lua_State *L)
@@ -1208,17 +1548,29 @@ static int h5lua_H5Topen1(lua_State *L)
 static luaL_Reg H5T_funcs[] = {
   {"H5Tcopy", h5lua_H5Tcopy},
   {"H5Tclose", h5lua_H5Tclose},
+  {"H5Tequal", h5lua_H5Tequal},
   {"H5Tlock", h5lua_H5Tlock},
   {"H5Tcommit2", h5lua_H5Tcommit2},
   {"H5Topen2", h5lua_H5Topen2},
   {"H5Tcommit_anon", h5lua_H5Tcommit_anon},
-  {"H5Tget_create_plist", h5lua_H5Tget_create_plist},
+  {"H5Tcommitted", h5lua_H5Tcommitted},
+  {"H5Tdecode", h5lua_H5Tdecode},
+  {"H5Tinsert", h5lua_H5Tinsert},
   {"H5Tpack", h5lua_H5Tpack},
   {"H5Tenum_create", h5lua_H5Tenum_create},
+  {"H5Tenum_insert", h5lua_H5Tenum_insert},
+  {"H5Tenum_valueof", h5lua_H5Tenum_valueof},
   {"H5Tvlen_create", h5lua_H5Tvlen_create},
+  {"H5Tarray_create2", h5lua_H5Tarray_create2},
   {"H5Tset_tag", h5lua_H5Tset_tag},
-  {"H5Tget_super", h5lua_H5Tget_super},
-  {"H5Tget_member_type", h5lua_H5Tget_member_type},
+  {"H5Tis_variable_str", h5lua_H5Tis_variable_str},
+  {"H5Tset_size", h5lua_H5Tset_size},
+  {"H5Tset_precision", h5lua_H5Tset_precision},
+  {"H5Tset_offset", h5lua_H5Tset_offset},
+  {"H5Tset_fields", h5lua_H5Tset_fields},
+  {"H5Tset_ebias", h5lua_H5Tset_ebias},
+  {"H5Tcompiler_conv", h5lua_H5Tcompiler_conv},
+  {"H5Tconvert", h5lua_H5Tconvert},
   {"H5Tcommit1", h5lua_H5Tcommit1},
   {"H5Topen1", h5lua_H5Topen1},
   {NULL,NULL}};
