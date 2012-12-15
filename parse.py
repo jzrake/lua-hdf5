@@ -131,7 +131,7 @@ def stripcomments(text):
     return re.sub(pattern, replacer, text)
 
 
-def header_functions(prefix, outfile=None, extras=[]):
+def header_functions(prefix, outfile=None, byhand=[], extras=[]):
     f = open("/Library/Science/hdf5/include/H5%spublic.h" % prefix)
     passed = [ ]
     failed = [ ]
@@ -152,7 +152,7 @@ def header_functions(prefix, outfile=None, extras=[]):
     outfile.write(
         """\nstatic luaL_Reg H5%s_funcs[] = {\n  %s,\n  {NULL,NULL}};\n""" % (
             prefix, ',\n  '.join(["""{"%s", h5lua_%s}""" % (n, n)
-                                for n in passed])))
+                                for n in (passed + byhand)])))
 
 def H5F():
     f = open("/Library/Science/hdf5/include/H5Fpublic.h")
@@ -200,6 +200,24 @@ def H5O():
             s = m.group(1)
             print "  REG_NUMBER(%s);" % s
 
+def H5L():
+    f = open("/Library/Science/hdf5/include/H5Lpublic.h")    
+    for line in f:
+        target = re.compile(r"\s*(H5L_T\w+).*")
+        m = target.match(line)
+        if m:
+            s = m.group(1)
+            print "  REG_NUMBER(%s);" % s
+
+def H5():
+    f = open("/Library/Science/hdf5/include/H5public.h")    
+    for line in f:
+        target = re.compile(r"\s*(H5_\w+).*")
+        m = target.match(line)
+        if m:
+            s = m.group(1)
+            print "  REG_NUMBER(%s);" % s
+
 extras = {
     "A": ["H5_DLL hid_t H5Acreate( hid_t loc_id, const char *attr_name, "
           "hid_t type_id, hid_t space_id, hid_t acpl_id, hid_t aapl_id )"
@@ -210,14 +228,18 @@ extras = {
           "hid_t dcpl_id, hid_t dapl_id )",
           "H5_DLL hid_t H5Dopen( hid_t loc_id, const char *name, hid_t dapl_id )"]
 }
-
+byhand = {
+    "L": ["H5Literate"]
+}
 
 # For collecting functions from header files:
 # ----------------------------------------------------------
 wrap = open("h5funcs.c", "w")
 for s in "ADEFGILOPRSTZ":
-    header_functions(s, outfile=wrap, extras=extras.get(s, []))
-#header_functions("Z", outfile=wrap, extras=extras.get("Z", []))
+    header_functions(s, outfile=wrap,
+                     extras=extras.get(s, []),
+                     byhand=byhand.get(s, []))
+
 
 print "%d functions wrapped successfully" % len(FunctionPrototype.passed)
 #print '\t'+'\n\t'.join(FunctionPrototype.passed)
@@ -232,3 +254,5 @@ print "%d functions not wrapped successfully" % len(FunctionPrototype.failed)
 #H5P()
 #H5T()
 #H5O()
+#H5L()
+#H5()

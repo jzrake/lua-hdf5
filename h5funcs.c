@@ -853,6 +853,7 @@ static luaL_Reg H5L_funcs[] = {
   {"H5Lget_val", h5lua_H5Lget_val},
   {"H5Lexists", h5lua_H5Lexists},
   {"H5Lcreate_external", h5lua_H5Lcreate_external},
+  {"H5Literate", h5lua_H5Literate},
   {NULL,NULL}};
 
 static int h5lua_H5Oopen(lua_State *L)

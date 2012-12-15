@@ -128,9 +128,41 @@ static int h5lua_hsize_t_arr__newindex(lua_State *L)
 
 
 // -----------------------------------------------------------------------------
+// By-hand wrappers
+// -----------------------------------------------------------------------------
+static herr_t _H5Literate_cb(hid_t g_id, const char *name,
+			     const H5L_info_t *info, void *op_data)
+{
+  /*
+   *   function expects
+   *
+   * + op_data is a lua_State*
+   * + function on top of Lua stack
+   */
+  lua_State *L = (lua_State*) op_data;
+  lua_pushvalue(L, -1);
+  lua_pushstring(L, name);
+  lua_call(L, 1, 0);
+  return 0;
+}
+int h5lua_H5Literate(lua_State *L)
+{
+  hid_t group_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  H5_index_t index_type = luaL_checkinteger(L, 2);
+  H5_iter_order_t order = luaL_checkinteger(L, 3);
+  hsize_t *idx = (hsize_t*) luaL_checkudata(L, 4, "HDF5::hsize_t_arr");
+  luaL_checktype(L, 5, LUA_TFUNCTION);
+  H5L_iterate_t op = _H5Literate_cb;
+  int ret = H5Literate(group_id, index_type, order, idx, op, L);
+  return ret;
+}
+
+
+// -----------------------------------------------------------------------------
 // Python-generated wrappers
 // -----------------------------------------------------------------------------
 #include "h5funcs.c"
+
 
 int luaopen_h5lua(lua_State *L)
 {
@@ -175,10 +207,10 @@ int luaopen_h5lua(lua_State *L)
   luaL_setfuncs(L, H5L_funcs, 0);
   luaL_setfuncs(L, H5O_funcs, 0);
   luaL_setfuncs(L, H5P_funcs, 0);
-  //  luaL_setfuncs(L, H5R_funcs, 0);
+  luaL_setfuncs(L, H5R_funcs, 0);
   luaL_setfuncs(L, H5S_funcs, 0);
   luaL_setfuncs(L, H5T_funcs, 0);
-  //  luaL_setfuncs(L, H5Z_funcs, 0);
+  luaL_setfuncs(L, H5Z_funcs, 0);
 
 #define REG_NUMBER(s) lua_pushnumber(L, s); lua_setfield(L, -2, #s);
   REG_NUMBER(H5F_ACC_RDONLY);
@@ -222,6 +254,21 @@ int luaopen_h5lua(lua_State *L)
   REG_NUMBER(H5O_TYPE_DATASET);
   REG_NUMBER(H5O_TYPE_NAMED_DATATYPE);
   REG_NUMBER(H5O_TYPE_NTYPES);
+  REG_NUMBER(H5L_TYPE_ERROR);
+  REG_NUMBER(H5L_TYPE_HARD);
+  REG_NUMBER(H5L_TYPE_SOFT);
+  REG_NUMBER(H5L_TYPE_EXTERNAL);
+  REG_NUMBER(H5L_TYPE_MAX);
+  REG_NUMBER(H5_VERS_RELEASE);
+  REG_NUMBER(H5_ITER_UNKNOWN);
+  REG_NUMBER(H5_ITER_INC);
+  REG_NUMBER(H5_ITER_DEC);
+  REG_NUMBER(H5_ITER_NATIVE);
+  REG_NUMBER(H5_ITER_N);
+  REG_NUMBER(H5_INDEX_UNKNOWN);
+  REG_NUMBER(H5_INDEX_NAME);
+  REG_NUMBER(H5_INDEX_CRT_ORDER);
+  REG_NUMBER(H5_INDEX_N);
 #undef REG_NUMBER
 
 #define REG_HID(s) lh5_push_hid_t(L, s); lua_setfield(L, -2, #s);

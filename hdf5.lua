@@ -78,7 +78,7 @@ end
 --------------------------------------------------------------------------------
 local IndexableMeta = inherit_from(BaseMeta)
 function IndexableMeta:__index(key)
-if self._open_objects[key] then
+   if self._open_objects[key] then
       return self._open_objects[key]
    end
    if not H5.H5Lexists(self._hid, key, hp0) then
@@ -161,8 +161,7 @@ function hdf5.Group(parent, name)
 		 _close=H5.H5Gclose,
 		 _open_objects={ } }
    inherit_from(GroupClass, new)
-   local exist = H5.H5Lexists(parent._hid, name, hp0)
-   if not exist then
+   if not H5.H5Lexists(parent._hid, name, hp0) then
       new._hid = H5.H5Gcreate2(parent._hid, name, hp0, hp0, hp0)
    else
       new._hid = H5.H5Gopen2(parent._hid, name, hp0)
@@ -183,14 +182,12 @@ local function test1()
    assert(h5f["thegroup"]["thesubgroup"] == h5h)
 end
 
-
 local function test2()
    local h5f = hdf5.File("outfile2.h5", "w")
    local h5g = hdf5.Group(h5f, "thegroup")
    local h5h = hdf5.Group(h5g, "thesubgroup")
-   assert(h5h:path() == "/outfile2.h5/thegroup/thesubgroup")
    h5g:close()
-   assert(h5f["thegroup"]["thesubgroup"]._name == h5h._name)
+   assert(h5f["thegroup"]["thesubgroup"]:path() == h5h:path())
    assert(h5f["thething"] == nil)
 end
 
