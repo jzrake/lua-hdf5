@@ -1,7 +1,19 @@
 
+--------------------------------------------------------------------------------
+--
+--               High level Lua wrappers for HDF5 library
+--
+--------------------------------------------------------------------------------
+local hdf5 = { } -- module table
+--------------------------------------------------------------------------------
+
 local H5 = require 'h5lua'
 local hp0 = H5.H5P_DEFAULT
 
+
+--------------------------------------------------------------------------------
+-- Utility functions
+--------------------------------------------------------------------------------
 local function printf(...)
    print(string.format(...))
 end
@@ -13,6 +25,11 @@ local function inherit_from(base, derived)
    return new
 end
 
+
+
+--------------------------------------------------------------------------------
+-- Base classes for meta-table and methods wrapping hid_t objects
+--------------------------------------------------------------------------------
 local BaseMeta = { }
 function BaseMeta:__index()
    print("item retrieval not supported")
@@ -44,22 +61,24 @@ function BaseClass:close()
 end
 
 
-local hdf5 = { }
+--------------------------------------------------------------------------------
+-- IndexableClass methods
+--------------------------------------------------------------------------------
+local IndexableClass = inherit_from(BaseClass)
+function IndexableClass:path(key)
+   if not self._parent then
+      return '/' .. self._name
+   else
+      return self._parent:path() .. '/' .. self._name
+   end
+end
+
 
 --------------------------------------------------------------------------------
--- HDF5 File class methods
+-- IndexableMeta methods
 --------------------------------------------------------------------------------
-local FileClass = inherit_from(BaseClass)
-
-
---------------------------------------------------------------------------------
--- HDF5 Group class methods
---------------------------------------------------------------------------------
-local GroupClass = inherit_from(BaseClass)
-
-
-local FileGroupSharedMeta = inherit_from(BaseMeta)
-function FileGroupSharedMeta:__index(key)
+local IndexableMeta = inherit_from(BaseMeta)
+function IndexableMeta:__index(key)
 if self._open_objects[key] then
       return self._open_objects[key]
    end
@@ -75,7 +94,20 @@ if self._open_objects[key] then
    end
 end
 
-local FileMeta = inherit_from(FileGroupSharedMeta)
+
+--------------------------------------------------------------------------------
+-- HDF5 File class methods
+--------------------------------------------------------------------------------
+local FileClass = inherit_from(IndexableClass)
+
+
+--------------------------------------------------------------------------------
+-- HDF5 Group class methods
+--------------------------------------------------------------------------------
+local GroupClass = inherit_from(IndexableClass)
+
+
+local FileMeta = inherit_from(IndexableMeta)
 function FileMeta:__tostring()
    if self._hid ~= 0 then
       return string.format("<HDF5 file: \"%s\" (mode %s)>", self._name,
@@ -85,7 +117,7 @@ function FileMeta:__tostring()
    end
 end
 
-local GroupMeta = inherit_from(FileGroupSharedMeta)
+local GroupMeta = inherit_from(IndexableMeta)
 function GroupMeta:__tostring()
    if self._hid ~= 0 then
       return string.format("<HDF5 group: \"%s\">", self._name)
@@ -154,6 +186,7 @@ local function test2()
    local h5f = hdf5.File("outfile2.h5", "w")
    local h5g = hdf5.Group(h5f, "thegroup")
    local h5h = hdf5.Group(h5g, "thesubgroup")
+   assert(h5h:path() == "/outfile2.h5/thegroup/thesubgroup")
    h5g:close()
    assert(h5f["thegroup"]["thesubgroup"]._name == h5h._name)
    assert(h5f["thething"] == nil)
