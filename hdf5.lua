@@ -45,8 +45,8 @@ function BaseClass:close()
    if self._open_objects then
       for k,v in pairs(self._open_objects) do
 	 v:close()
+	 self._open_objects[k] = nil
       end
-      self._open_objects = { }
    end
    if self._parent then
       self._parent._open_objects[self._name] = nil
@@ -71,6 +71,15 @@ function IndexableClass:path(key)
       return self._parent:path() .. '/' .. self._name
    end
 end
+function IndexableClass:keys()
+   local link_names = { }
+   local function f(name)
+      table.insert(link_names, name)
+   end
+   local idx = H5.new_hsize_t_arr{0}
+   H5.H5Literate(self._hid, H5.H5_INDEX_NAME, H5.H5_ITER_NATIVE, idx, f)
+   return link_names
+end
 
 
 --------------------------------------------------------------------------------
@@ -78,6 +87,9 @@ end
 --------------------------------------------------------------------------------
 local IndexableMeta = inherit_from(BaseMeta)
 function IndexableMeta:__index(key)
+   if self._hid == 0 then -- object is closed
+      return nil
+   end
    if self._open_objects[key] then
       return self._open_objects[key]
    end
@@ -91,6 +103,13 @@ function IndexableMeta:__index(key)
    else
       error("object %s/%s has an unsupported type", self._name, key)
    end
+end
+function IndexableMeta:__pairs()
+   local p = { }
+   for k,v in pairs(self:keys()) do
+      p[v] = self[v]
+   end
+   return pairs(p)
 end
 
 
@@ -176,22 +195,37 @@ end
 -- Unit test cases
 --------------------------------------------------------------------------------
 local function test1()
-   local h5f = hdf5.File("outfile1.h5", "w")
+   local h5f = hdf5.File("outfile.h5", "w")
    local h5g = hdf5.Group(h5f, "thegroup")
    local h5h = hdf5.Group(h5g, "thesubgroup")
    assert(h5f["thegroup"]["thesubgroup"] == h5h)
 end
 
 local function test2()
-   local h5f = hdf5.File("outfile2.h5", "w")
+   local h5f = hdf5.File("outfile.h5", "w")
    local h5g = hdf5.Group(h5f, "thegroup")
    local h5h = hdf5.Group(h5g, "thesubgroup")
    h5g:close()
    assert(h5f["thegroup"]["thesubgroup"]:path() == h5h:path())
    assert(h5f["thething"] == nil)
+   h5f:close()
+end
+
+local function test3()
+   local h5f = hdf5.File("outfile.h5", "w")
+   local hg1 = hdf5.Group(h5f, "thegroup1")
+   local hg2 = hdf5.Group(h5f, "thegroup2")
+   local hg3 = hdf5.Group(h5f, "thegroup3")
+   for k,v in pairs(h5f) do
+      assert(v == h5f[k])
+   end
 end
 
 test1()
+collectgarbage() -- to close files
 test2()
+collectgarbage()
+test3()
+collectgarbage()
 
 return hdf5
