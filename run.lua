@@ -7,8 +7,8 @@ local double = H5.H5T_NATIVE_DOUBLE
 
 local fid = H5.H5Fcreate("outfile.h5", trunc, def, def)
 local sid = H5.H5Screate(H5.H5S_SCALAR)
-local did = H5.H5Dcreate(fid, "dataset", double, sid, def, def, def)
-local dif = H5.H5Dcreate(fid, "fataset", double, sid, def, def, def)
+local did = H5.H5Dcreate2(fid, "dataset", double, sid, def, def, def)
+local dif = H5.H5Dcreate2(fid, "fataset", double, sid, def, def, def)
 
 local idx = H5.new_hsize_t_arr{0}
 local link_names = { }

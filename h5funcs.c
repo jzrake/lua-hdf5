@@ -369,28 +369,6 @@ static int h5lua_H5Dextend(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
-static int h5lua_H5Dcreate(lua_State *L)
-{
-  hid_t loc_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  const char *name = luaL_checkstring(L, 2);
-  hid_t dtype_id = *((hid_t*) luaL_checkudata(L, 3, "HDF5::hid_t"));
-  hid_t space_id = *((hid_t*) luaL_checkudata(L, 4, "HDF5::hid_t"));
-  hid_t lcpl_id = *((hid_t*) luaL_checkudata(L, 5, "HDF5::hid_t"));
-  hid_t dcpl_id = *((hid_t*) luaL_checkudata(L, 6, "HDF5::hid_t"));
-  hid_t dapl_id = *((hid_t*) luaL_checkudata(L, 7, "HDF5::hid_t"));
-  hid_t res = H5Dcreate(loc_id, name, dtype_id, space_id, lcpl_id, dcpl_id, dapl_id);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
-static int h5lua_H5Dopen(lua_State *L)
-{
-  hid_t loc_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  const char *name = luaL_checkstring(L, 2);
-  hid_t dapl_id = *((hid_t*) luaL_checkudata(L, 3, "HDF5::hid_t"));
-  hid_t res = H5Dopen(loc_id, name, dapl_id);
-  lh5_push_hid_t(L, res);
-  return 1;
-}
 static luaL_Reg H5D_funcs[] = {
   {"H5Dcreate2", h5lua_H5Dcreate2},
   {"H5Dcreate_anon", h5lua_H5Dcreate_anon},
@@ -410,8 +388,6 @@ static luaL_Reg H5D_funcs[] = {
   {"H5Dcreate1", h5lua_H5Dcreate1},
   {"H5Dopen1", h5lua_H5Dopen1},
   {"H5Dextend", h5lua_H5Dextend},
-  {"H5Dcreate", h5lua_H5Dcreate},
-  {"H5Dopen", h5lua_H5Dopen},
   {NULL,NULL}};
 
 static int h5lua_H5Eregister_class(lua_State *L)

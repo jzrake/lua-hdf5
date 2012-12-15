@@ -218,16 +218,6 @@ def H5():
             s = m.group(1)
             print "  REG_NUMBER(%s);" % s
 
-extras = {
-    "A": ["H5_DLL hid_t H5Acreate( hid_t loc_id, const char *attr_name, "
-          "hid_t type_id, hid_t space_id, hid_t acpl_id, hid_t aapl_id )"
-          "H5_DLL herr_t H5Aiterate( hid_t loc_id, unsigned * idx, "
-          "H5A_operator_t op, void *op_data )"],
-    "D": ["H5_DLL hid_t H5Dcreate( hid_t loc_id, const char *name, "
-          "hid_t dtype_id, hid_t space_id, hid_t lcpl_id, "
-          "hid_t dcpl_id, hid_t dapl_id )",
-          "H5_DLL hid_t H5Dopen( hid_t loc_id, const char *name, hid_t dapl_id )"]
-}
 byhand = {
     "L": ["H5Literate"]
 }
@@ -236,9 +226,7 @@ byhand = {
 # ----------------------------------------------------------
 wrap = open("h5funcs.c", "w")
 for s in "ADEFGILOPRSTZ":
-    header_functions(s, outfile=wrap,
-                     extras=extras.get(s, []),
-                     byhand=byhand.get(s, []))
+    header_functions(s, outfile=wrap, byhand=byhand.get(s, []))
 
 
 print "%d functions wrapped successfully" % len(FunctionPrototype.passed)
