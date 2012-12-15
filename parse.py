@@ -58,6 +58,18 @@ class FunctionPrototype(object):
                 get_lua_args.append(
                     "hid_t %s = *((hid_t*) luaL_checkudata("
                     "L, %d, \"HDF5::hid_t\"));" % (name, n+1))
+            elif t == "hsize_t *":
+                get_lua_args.append(
+                    "hsize_t *%s = (hsize_t*) luaL_checkudata("
+                    "L, %d, \"HDF5::hsize_t_arr\");" % (name, n+1))
+            elif t == "const hsize_t *":
+                get_lua_args.append(
+                    "const hsize_t *%s = (hsize_t*) luaL_checkudata("
+                    "L, %d, \"HDF5::hsize_t_arr\");" % (name, n+1))
+            elif t == "H5O_info_t *":
+                get_lua_args.append(
+                    "H5O_info_t *%s = (H5O_info_t*) luaL_checkudata("
+                    "L, %d, \"HDF5::H5O_info_t\");" % (name, n+1))
             elif t == "unsigned":
                 get_lua_args.append(
                     "unsigned %s = luaL_checkunsigned(L, %d);" % (name, n+1))
@@ -69,14 +81,6 @@ class FunctionPrototype(object):
                 get_lua_args.append(
                     "hsize_t %s = luaL_checkunsigned(L, %d);" % (
                         name, n + 1))
-            elif t == "hsize_t *":
-                get_lua_args.append(
-                    "hsize_t *%s = (hsize_t*) luaL_checkudata("
-                    "L, %d, \"HDF5::hsize_t_arr\");" % (name, n+1))
-            elif t == "const hsize_t *":
-                get_lua_args.append(
-                    "const hsize_t *%s = (hsize_t*) luaL_checkudata("
-                    "L, %d, \"HDF5::hsize_t_arr\");" % (name, n+1))
             elif t in ["H5S_class_t", "H5S_seloper_t", "H5R_type_t"]:
                 get_lua_args.append(
                     "int %s = luaL_checkinteger(L, %d);" % (
@@ -185,6 +189,15 @@ def H5P():
             s = m.group(1)
             print "  REG_HID(%s);" % s
 
+def H5O():
+    f = open("/Library/Science/hdf5/include/H5Opublic.h")    
+    for line in f:
+        target = re.compile(r"\s*(H5O_T\w+).*")
+        m = target.match(line)
+        if m:
+            s = m.group(1)
+            print "  REG_NUMBER(%s);" % s
+
 extras = {
     "A": ["H5_DLL hid_t H5Acreate( hid_t loc_id, const char *attr_name, "
           "hid_t type_id, hid_t space_id, hid_t acpl_id, hid_t aapl_id )"
@@ -216,3 +229,4 @@ print "%d functions not wrapped successfully" % len(FunctionPrototype.failed)
 #H5S()
 #H5P()
 #H5T()
+#H5O()

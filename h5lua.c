@@ -6,6 +6,7 @@
 #include "lualib.h"
 #include "lauxlib.h"
 
+
 // -----------------------------------------------------------------------------
 // hid_t
 // -----------------------------------------------------------------------------
@@ -32,6 +33,44 @@ static int h5lua_new_herr_t(lua_State *L)
 {
   lh5_push_herr_t(L, 0);
   return 1;
+}
+
+// -----------------------------------------------------------------------------
+// H5O_info_t
+// -----------------------------------------------------------------------------
+static void lh5_push_H5O_info_t(lua_State *L, H5O_info_t id)
+{
+  *((H5O_info_t*) lua_newuserdata(L, sizeof(H5O_info_t))) = id;
+  luaL_setmetatable(L, "HDF5::H5O_info_t");
+}
+static int h5lua_new_H5O_info_t(lua_State *L)
+{
+  H5O_info_t id;
+  lh5_push_H5O_info_t(L, id);
+  return 1;
+}
+static int h5lua_H5O_info_t__index(lua_State *L)
+{
+  H5O_info_t *i = (H5O_info_t*) luaL_checkudata(L, 1, "HDF5::H5O_info_t");
+  const char *key = luaL_checkstring(L, 2);
+  if (0) { }
+  else if (strcmp(key, "fileno") == 0) { lua_pushnumber(L, i->fileno); }
+  else if (strcmp(key, "addr") == 0) { lua_pushnumber(L, i->addr); }
+  else if (strcmp(key, "type") == 0) { lua_pushnumber(L, i->type); }
+  else if (strcmp(key, "rc") == 0) { lua_pushnumber(L, i->rc); }
+  else if (strcmp(key, "atime") == 0) { lua_pushnumber(L, i->atime); }
+  else if (strcmp(key, "mtime") == 0) { lua_pushnumber(L, i->mtime); }
+  else if (strcmp(key, "ctime") == 0) { lua_pushnumber(L, i->ctime); }
+  else if (strcmp(key, "btime") == 0) { lua_pushnumber(L, i->btime); }
+  else if (strcmp(key, "num_attrs") == 0) { lua_pushnumber(L, i->num_attrs); }
+  else { lua_pushnil(L); }
+  return 1;
+}
+static int h5lua_H5O_info_t__newindex(lua_State *L)
+{
+  hsize_t *i = (hsize_t*) luaL_checkudata(L, 1, "HDF5::H5O_info_t");
+  luaL_error(L, "object does not support item assignment");
+  return 0;
 }
 
 // -----------------------------------------------------------------------------
@@ -98,22 +137,31 @@ int luaopen_h5lua(lua_State *L)
   luaL_Reg h5lua_types[] = {
     {"new_hid_t", h5lua_new_hid_t},
     {"new_herr_t", h5lua_new_herr_t},
+    {"new_H5O_info_t", h5lua_new_H5O_info_t},
     {"new_hsize_t_arr", h5lua_new_hsize_t_arr},
     {NULL, NULL}};
 
+  luaL_Reg H5O_info_t_meta[] = {
+    {"__index", h5lua_H5O_info_t__index},
+    {"__newindex", h5lua_H5O_info_t__newindex},
+    {NULL, NULL}};
+  luaL_newmetatable(L, "HDF5::H5O_info_t");
+  luaL_setfuncs(L, H5O_info_t_meta, 0);
+  lua_pop(L, 1);
 
   luaL_Reg hsize_t_arr_meta[] = {
     {"__index", h5lua_hsize_t_arr__index},
     {"__newindex", h5lua_hsize_t_arr__newindex},
     {NULL, NULL}};
+  luaL_newmetatable(L, "HDF5::hsize_t_arr");
+  luaL_setfuncs(L, hsize_t_arr_meta, 0);
+  lua_pop(L, 1);
 
   luaL_newmetatable(L, "HDF5::hid_t");
   lua_pop(L, 1);
   luaL_newmetatable(L, "HDF5::herr_t");
   lua_pop(L, 1);
-  luaL_newmetatable(L, "HDF5::hsize_t_arr");
-  luaL_setfuncs(L, hsize_t_arr_meta, 0);
-  lua_pop(L, 1);
+
   lua_getglobal(L, "package");
   lua_getfield(L, -1, "loaded");
   lua_newtable(L);
@@ -169,6 +217,11 @@ int luaopen_h5lua(lua_State *L)
   REG_NUMBER(H5S_SEL_HYPERSLABS);
   REG_NUMBER(H5S_SEL_ALL);
   REG_NUMBER(H5S_SEL_N);
+  REG_NUMBER(H5O_TYPE_UNKNOWN);
+  REG_NUMBER(H5O_TYPE_GROUP);
+  REG_NUMBER(H5O_TYPE_DATASET);
+  REG_NUMBER(H5O_TYPE_NAMED_DATATYPE);
+  REG_NUMBER(H5O_TYPE_NTYPES);
 #undef REG_NUMBER
 
 #define REG_HID(s) lh5_push_hid_t(L, s); lua_setfield(L, -2, #s);

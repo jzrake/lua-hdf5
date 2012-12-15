@@ -9,6 +9,16 @@ local fid = h5lua.H5Fcreate("outfile.h5", trunc, def, def)
 local sid = h5lua.H5Screate(h5lua.H5S_SCALAR)
 local did = h5lua.H5Dcreate(fid, "dataset", double, sid, def, def, def)
 
+
+local info = h5lua.new_H5O_info_t()
+h5lua.H5Oget_info(fid, info)
+assert(info.fileno == 2)
+assert(info.addr == 96)
+assert(info.type == h5lua.H5O_TYPE_GROUP)
+assert(info.rc == 1)
+assert(info.ctime == 0)
+assert(info.num_attrs == 0)
+
 h5lua.H5Fclose(fid)
 h5lua.H5Sclose(sid)
 h5lua.H5Dclose(did)

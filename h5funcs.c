@@ -864,6 +864,24 @@ static int h5lua_H5Oopen(lua_State *L)
   lh5_push_hid_t(L, res);
   return 1;
 }
+static int h5lua_H5Oget_info(lua_State *L)
+{
+  hid_t loc_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  H5O_info_t *oinfo = (H5O_info_t*) luaL_checkudata(L, 2, "HDF5::H5O_info_t");
+  herr_t res = H5Oget_info(loc_id, oinfo);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Oget_info_by_name(lua_State *L)
+{
+  hid_t loc_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const char *name = luaL_checkstring(L, 2);
+  H5O_info_t *oinfo = (H5O_info_t*) luaL_checkudata(L, 3, "HDF5::H5O_info_t");
+  hid_t lapl_id = *((hid_t*) luaL_checkudata(L, 4, "HDF5::hid_t"));
+  herr_t res = H5Oget_info_by_name(loc_id, name, oinfo, lapl_id);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
 static int h5lua_H5Olink(lua_State *L)
 {
   hid_t obj_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -928,6 +946,8 @@ static int h5lua_H5Oclose(lua_State *L)
 }
 static luaL_Reg H5O_funcs[] = {
   {"H5Oopen", h5lua_H5Oopen},
+  {"H5Oget_info", h5lua_H5Oget_info},
+  {"H5Oget_info_by_name", h5lua_H5Oget_info_by_name},
   {"H5Olink", h5lua_H5Olink},
   {"H5Oincr_refcount", h5lua_H5Oincr_refcount},
   {"H5Odecr_refcount", h5lua_H5Odecr_refcount},
