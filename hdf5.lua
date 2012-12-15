@@ -26,7 +26,6 @@ local function inherit_from(base, derived)
 end
 
 
-
 --------------------------------------------------------------------------------
 -- Base classes for meta-table and methods wrapping hid_t objects
 --------------------------------------------------------------------------------
@@ -100,13 +99,6 @@ end
 --------------------------------------------------------------------------------
 local FileClass = inherit_from(IndexableClass)
 
-
---------------------------------------------------------------------------------
--- HDF5 Group class methods
---------------------------------------------------------------------------------
-local GroupClass = inherit_from(IndexableClass)
-
-
 local FileMeta = inherit_from(IndexableMeta)
 function FileMeta:__tostring()
    if self._hid ~= 0 then
@@ -117,6 +109,12 @@ function FileMeta:__tostring()
    end
 end
 
+
+--------------------------------------------------------------------------------
+-- HDF5 Group class methods
+--------------------------------------------------------------------------------
+local GroupClass = inherit_from(IndexableClass)
+
 local GroupMeta = inherit_from(IndexableMeta)
 function GroupMeta:__tostring()
    if self._hid ~= 0 then
@@ -126,10 +124,11 @@ function GroupMeta:__tostring()
    end
 end
 
+
+--------------------------------------------------------------------------------
+-- HDF5 File constructor
+--------------------------------------------------------------------------------
 function hdf5.File(name, mode)
-   -----------------------------------------------------------------------------
-   -- HDF5 File constructor
-   -----------------------------------------------------------------------------
    local new = { _type='file',
 		 _name=name,
 		 _mode=mode,
@@ -151,10 +150,10 @@ function hdf5.File(name, mode)
 end
 
 
+--------------------------------------------------------------------------------
+-- HDF5 Group constructor
+--------------------------------------------------------------------------------
 function hdf5.Group(parent, name)
-   -----------------------------------------------------------------------------
-   -- HDF5 Group constructor
-   -----------------------------------------------------------------------------
    local new = { _type='group',
 		 _parent=parent,
 		 _name=name,
@@ -174,6 +173,9 @@ function hdf5.Group(parent, name)
 end
 
 
+--------------------------------------------------------------------------------
+-- Unit test cases
+--------------------------------------------------------------------------------
 local function test1()
    local h5f = hdf5.File("outfile1.h5", "w")
    local h5g = hdf5.Group(h5f, "thegroup")
