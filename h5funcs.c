@@ -1227,6 +1227,24 @@ static int h5lua_H5Pget_small_data_block_size(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Pset_chunk(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  int ndims = luaL_checkinteger(L, 2);
+  const hsize_t *dim = (hsize_t*) luaL_checkudata(L, 3, "HDF5::hsize_t_arr");
+  herr_t res = H5Pset_chunk(plist_id, ndims, dim);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pget_chunk(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  int max_ndims = luaL_checkinteger(L, 2);
+  hsize_t *dim = (hsize_t*) luaL_checkudata(L, 3, "HDF5::hsize_t_arr");
+  int res = H5Pget_chunk(plist_id, max_ndims, dim);
+  lua_pushnumber(L, res);
+  return 1;
+}
 static int h5lua_H5Pget_external_count(lua_State *L)
 {
   hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -1455,6 +1473,8 @@ static luaL_Reg H5P_funcs[] = {
   {"H5Pset_sieve_buf_size", h5lua_H5Pset_sieve_buf_size},
   {"H5Pset_small_data_block_size", h5lua_H5Pset_small_data_block_size},
   {"H5Pget_small_data_block_size", h5lua_H5Pget_small_data_block_size},
+  {"H5Pset_chunk", h5lua_H5Pset_chunk},
+  {"H5Pget_chunk", h5lua_H5Pget_chunk},
   {"H5Pget_external_count", h5lua_H5Pget_external_count},
   {"H5Pget_nfilters", h5lua_H5Pget_nfilters},
   {"H5Pall_filters_avail", h5lua_H5Pall_filters_avail},
@@ -1521,6 +1541,25 @@ static int h5lua_H5Screate(lua_State *L)
   int type = luaL_checkinteger(L, 1);
   hid_t res = H5Screate(type);
   lh5_push_hid_t(L, res);
+  return 1;
+}
+static int h5lua_H5Screate_simple(lua_State *L)
+{
+  int rank = luaL_checkinteger(L, 1);
+  const hsize_t *dims = (hsize_t*) luaL_checkudata(L, 2, "HDF5::hsize_t_arr");
+  const hsize_t *maxdims = (hsize_t*) luaL_checkudata(L, 3, "HDF5::hsize_t_arr");
+  hid_t res = H5Screate_simple(rank, dims, maxdims);
+  lh5_push_hid_t(L, res);
+  return 1;
+}
+static int h5lua_H5Sset_extent_simple(lua_State *L)
+{
+  hid_t space_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  int rank = luaL_checkinteger(L, 2);
+  const hsize_t *dims = (hsize_t*) luaL_checkudata(L, 3, "HDF5::hsize_t_arr");
+  const hsize_t *max = (hsize_t*) luaL_checkudata(L, 4, "HDF5::hsize_t_arr");
+  herr_t res = H5Sset_extent_simple(space_id, rank, dims, max);
+  lh5_push_herr_t(L, res);
   return 1;
 }
 static int h5lua_H5Scopy(lua_State *L)
@@ -1664,6 +1703,8 @@ static int h5lua_H5Sget_select_bounds(lua_State *L)
 }
 static luaL_Reg H5S_funcs[] = {
   {"H5Screate", h5lua_H5Screate},
+  {"H5Screate_simple", h5lua_H5Screate_simple},
+  {"H5Sset_extent_simple", h5lua_H5Sset_extent_simple},
   {"H5Scopy", h5lua_H5Scopy},
   {"H5Sclose", h5lua_H5Sclose},
   {"H5Sdecode", h5lua_H5Sdecode},

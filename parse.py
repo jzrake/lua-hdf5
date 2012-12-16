@@ -18,7 +18,6 @@ class FunctionPrototype(object):
         self.func_name = func_name
         self.ret_type = ret_type
         self.arg_list = [ ]
-
         for a in argstr[1:-1].split(','):
             ma = argtype.match(a.strip())
             self.arg_list.append([g.strip() for g in ma.groups()])
@@ -70,6 +69,9 @@ class FunctionPrototype(object):
                 get_lua_args.append(
                     "H5O_info_t *%s = (H5O_info_t*) luaL_checkudata("
                     "L, %d, \"HDF5::H5O_info_t\");" % (name, n+1))
+            elif t == "int":
+                get_lua_args.append(
+                    "int %s = luaL_checkinteger(L, %d);" % (name, n+1))
             elif t == "unsigned":
                 get_lua_args.append(
                     "unsigned %s = luaL_checkunsigned(L, %d);" % (name, n+1))
