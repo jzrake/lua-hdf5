@@ -31,10 +31,16 @@ end
 --------------------------------------------------------------------------------
 local BaseMeta = { }
 function BaseMeta:__index()
-   print("item retrieval not supported")
+   if self._hid == 0 then -- object is closed
+      return nil
+   end
+   --   print("item retrieval not supported") -- not a necessary warning!
 end
 function BaseMeta:__newindex()
-   error("item assignment not supported")
+   if self._hid == 0 then -- object is closed
+      return nil
+   end
+   print("item assignment not supported")
 end
 function BaseMeta:__gc()
    self:close()
@@ -144,6 +150,52 @@ function GroupMeta:__tostring()
 end
 
 
+
+--------------------------------------------------------------------------------
+-- HDF5 DataSpace class methods
+--------------------------------------------------------------------------------
+local DataSpaceClass = inherit_from(BaseClass)
+function DataSpaceClass:set_extent(extent)
+   if self._hid == 0 then
+      error("DataSpaceClass:set_extent cannot operate on closed data space")
+   end
+   local current_size = H5.new_hsize_t_arr(extent)
+   local maximum_size = H5.new_hsize_t_arr(extent)
+   H5.H5Sset_extent_simple(self._hid, #extent, current_size, maximum_size)
+end
+function DataSpaceClass:get_extent(type)
+   if self._hid == 0 then
+      error("DataSpaceClass:get_extent cannot operate on closed data space")
+   end
+   local rank = H5.H5Sget_simple_extent_ndims(self._hid)
+   local csize = { }
+   local msize = { }
+   for i=1,rank do csize[i] = 0 end
+   for i=1,rank do msize[i] = 0 end
+   local current_size = H5.new_hsize_t_arr(csize)
+   local maximum_size = H5.new_hsize_t_arr(msize)
+   H5.H5Sget_simple_extent_dims(self._hid, current_size, maximum_size)
+   for i=1,rank do csize[i] = current_size[i-1] end
+   for i=1,rank do msize[i] = maximum_size[i-1] end
+   if not type or type == 'current' then
+      return csize
+   elseif type == 'maximum' then
+      return msize
+   else
+      error("DataSpaceClass:get_extent: type must be 'current' or 'maximum'")
+   end
+end
+local DataSpaceMeta = inherit_from(BaseMeta)
+function DataSpaceMeta:__tostring()
+   if self._hid ~= 0 then
+      return string.format("<HDF5 data space: [%s]>",
+			   table.concat(self:get_extent(), " "))
+   else
+      return "<Closed HDF5 data space>"
+   end
+end
+
+
 --------------------------------------------------------------------------------
 -- HDF5 File constructor
 --------------------------------------------------------------------------------
@@ -192,6 +244,20 @@ end
 
 
 --------------------------------------------------------------------------------
+-- HDF5 DataSpace constructor
+--------------------------------------------------------------------------------
+function hdf5.DataSpace()
+   local new = { _type='data space',
+		 _hid=0,
+		 _close=H5.H5Sclose }
+   inherit_from(DataSpaceClass, new)
+   new._hid = H5.H5Screate(H5.H5S_SIMPLE)
+   setmetatable(new, DataSpaceMeta)
+   return new
+end
+
+
+--------------------------------------------------------------------------------
 -- Unit test cases
 --------------------------------------------------------------------------------
 local function test1()
@@ -221,11 +287,24 @@ local function test3()
    end
 end
 
-test1()
-collectgarbage() -- to close files
-test2()
-collectgarbage()
-test3()
+local function test4()
+   local h5s = hdf5.DataSpace()
+   h5s:set_extent{10,12,14}
+   print(h5s)
+   local size = h5s:get_extent('maximum')
+   assert(size[1] == 10)
+   assert(size[2] == 12)
+   assert(size[3] == 14)
+end
+
+--test1()
+--collectgarbage() -- to close files
+--test2()
+--collectgarbage()
+--test3()
+--collectgarbage()
+
+test4()
 collectgarbage()
 
 return hdf5
