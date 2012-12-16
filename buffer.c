@@ -7,9 +7,12 @@
 #include "lualib.h"
 #include "lauxlib.h"
 
-
-
-
+enum { 
+  BUFFER_TYPE_INT,
+  BUFFER_TYPE_CHAR,
+  BUFFER_TYPE_FLOAT,
+  BUFFER_TYPE_DOUBLE,
+} ;
 
 // -----------------------------------------------------------------------------
 // buffer
@@ -18,7 +21,7 @@ static void buf_push_buffer(lua_State *L, const void *p, size_t size)
 {
   void *newbuf = lua_newuserdata(L, size);
   if (newbuf == NULL) {
-    luaL_error(L, "not enough memory to allocate buffer");
+    luaL_error(L, "buffer: not enough memory to allocate buffer");
   }
   if (p != NULL) {
     memcpy(newbuf, p, size);
@@ -43,11 +46,82 @@ static int buffer_new_buffer(lua_State *L)
     buf = lua_tostring(L, 1);
     break;
   }
-
   buf_push_buffer(L, buf, N);
-  //  printf("built character buffer of length %ld\n", N);
   return 1;
 }
+
+static int buffer_sizeof(lua_State *L)
+{
+  unsigned int T = luaL_checkunsigned(L, 1);
+  size_t s = 0;
+  switch (T) {
+  case BUFFER_TYPE_CHAR: s = sizeof(char); break;
+  case BUFFER_TYPE_INT: s = sizeof(int); break;
+  case BUFFER_TYPE_FLOAT: s = sizeof(float); break;
+  case BUFFER_TYPE_DOUBLE: s = sizeof(double); break;
+  default:
+    luaL_error(L, "buffer: unknown data type specification");
+  }
+  lua_pushnumber(L, s);
+  return 1;
+}
+
+static int buffer_get_typed(lua_State *L)
+{
+  const char *buf = luaL_checkudata(L, 1, "buffer");
+  unsigned int T = luaL_checkunsigned(L, 2); // type
+  unsigned int n = luaL_checkunsigned(L, 3); // index
+  unsigned int N = lua_rawlen(L, 1); // buffer size
+  size_t offset;
+
+#define CASE(t)								\
+  do {									\
+    offset = n * sizeof(t);						\
+    if (offset > N) luaL_error(L, "buffer: index out of range");	\
+    lua_pushnumber(L, *((t*)(buf + offset)));				\
+  } while(0)								\
+
+  switch (T) {
+  case BUFFER_TYPE_CHAR: CASE(char); break;
+  case BUFFER_TYPE_INT: CASE(int); break;
+  case BUFFER_TYPE_FLOAT: CASE(float); break;
+  case BUFFER_TYPE_DOUBLE: CASE(double); break;
+  default:
+    luaL_error(L, "buffer: unknown data type specification");
+  }
+#undef CASE
+
+  return 1;
+}
+static int buffer_set_typed(lua_State *L)
+{
+  const char *buf = luaL_checkudata(L, 1, "buffer");
+  unsigned int T = luaL_checkunsigned(L, 2); // type
+  unsigned int n = luaL_checkunsigned(L, 3); // index
+  double v = luaL_checknumber(L, 4); // value
+  unsigned int N = lua_rawlen(L, 1); // buffer size
+  size_t offset;
+
+#define CASE(t)								\
+  do {									\
+    offset = n * sizeof(t);						\
+    if (offset > N) luaL_error(L, "buffer: index out of range");	\
+    *((t*)(buf + offset)) = v;						\
+  } while(0)								\
+
+  switch (T) {
+  case BUFFER_TYPE_CHAR: CASE(char); break;
+  case BUFFER_TYPE_INT: CASE(int); break;
+  case BUFFER_TYPE_FLOAT: CASE(float); break;
+  case BUFFER_TYPE_DOUBLE: CASE(double); break;
+  default:
+    luaL_error(L, "buffer: unknown data type specification");
+  }
+#undef CASE
+
+  return 0;
+}
+
 static int buffer__index(lua_State *L)
 {
   const char *buf = luaL_checkudata(L, 1, "buffer");
@@ -66,14 +140,14 @@ static int buffer__newindex(lua_State *L)
   char *buf = luaL_checkudata(L, 1, "buffer"); // buffer
   unsigned int n = luaL_checkunsigned(L, 2); // index
   char val = luaL_checkinteger(L, 3); // value
-  unsigned int N = lua_rawlen(L, 1) / sizeof(char);  // max index
+  unsigned int N = lua_rawlen(L, 1);  // max index
   if (n < N) {
     buf[n] = val;
   }
   else {
-    luaL_error(L, "index %d out of range on buffer of length %d", n, N);
+    luaL_error(L, "buffer: index %d out of range on buffer of length %d", n, N);
   }
-  return 1;
+  return 0;
 }
 static int buffer__len(lua_State *L)
 {
@@ -93,6 +167,9 @@ int luaopen_buffer(lua_State *L)
 {
   luaL_Reg buffer_types[] = {
     {"new_buffer", buffer_new_buffer},
+    {"sizeof", buffer_sizeof},
+    {"get_typed", buffer_get_typed},
+    {"set_typed", buffer_set_typed},
     {NULL, NULL}};
 
   luaL_Reg buffer_meta[] = {
@@ -108,6 +185,13 @@ int luaopen_buffer(lua_State *L)
 
   lua_newtable(L);
   luaL_setfuncs(L, buffer_types, 0);
+
+#define REG_NUMBER(s,t) lua_pushnumber(L, s); lua_setfield(L, -2, t);
+  REG_NUMBER(BUFFER_TYPE_CHAR, "char");
+  REG_NUMBER(BUFFER_TYPE_INT, "int");
+  REG_NUMBER(BUFFER_TYPE_FLOAT, "float");
+  REG_NUMBER(BUFFER_TYPE_DOUBLE, "double");
+#undef REG_NUMBER
 
   return 1;
 }
