@@ -186,6 +186,17 @@ function DataSetClass:write(buffer)
    end
    H5.H5Dwrite(self._hid, typ, spc, spc, hp0, buffer)
 end
+
+function DataSetClass:read()
+   local spc = H5.H5Dget_space(self._hid)
+   local typ = H5.H5Dget_type(self._hid)
+   local siz = H5.H5Tget_size(typ)
+   local bytes = H5.H5Sget_select_npoints(spc) * siz
+   local buffer = buffer.new_buffer(bytes)
+   H5.H5Dread(self._hid, typ, spc, spc, hp0, buffer)
+   return buffer
+end
+
 local DataSetMeta = inherit_from(BaseMeta)
 function DataSetMeta:__tostring()
    if self._hid ~= 0 then
@@ -416,6 +427,8 @@ end
 local function test5() -- depends on test3 being run first
    local file = hdf5.File("outfile.h5", "r")
    local dset = hdf5.DataSet(file["thegroup3"], "message")
+   local buffer = dset:read()
+   assert(tostring(buffer) == "the message content")
    dset:close()
    file:close()
 end
