@@ -258,8 +258,8 @@ int luaopen_h5lua(lua_State *L)
   luaL_newmetatable(L, "HDF5::herr_t");
   lua_pop(L, 1);
 
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "loaded");
+  //  lua_getglobal(L, "package");
+  //  lua_getfield(L, -1, "loaded");
   lua_newtable(L);
   luaL_setfuncs(L, h5lua_types, 0);
   luaL_setfuncs(L, H5A_funcs, 0);
@@ -336,6 +336,7 @@ int luaopen_h5lua(lua_State *L)
 #undef REG_NUMBER
 
 #define REG_HID(s) lh5_push_hid_t(L, s); lua_setfield(L, -2, #s);
+  REG_HID(H5P_DEFAULT);
   REG_HID(H5P_ROOT);
   REG_HID(H5P_OBJECT_CREATE);
   REG_HID(H5P_FILE_CREATE);
@@ -504,9 +505,5 @@ int luaopen_h5lua(lua_State *L)
   REG_HID(H5T_NATIVE_UINT_FAST64);
 #undef RED_HID
 
-  lh5_push_hid_t(L, H5P_DEFAULT); lua_setfield(L, -2, "H5P_DEFAULT");
-  lua_setfield(L, -2, "h5lua");
-  lua_pop(L, 2);
-
-  return 0;
+  return 1;
 }

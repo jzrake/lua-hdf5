@@ -14,7 +14,8 @@ int main(int argc, char **argv)
   int n;
   lua_State *L = luaL_newstate();
   luaL_openlibs(L);
-  luaopen_h5lua(L);
+  luaL_requiref(L, "h5lua", luaopen_h5lua, 0);
+
 
   // Create the global `arg` table
   // ---------------------------------------------------------------------------
