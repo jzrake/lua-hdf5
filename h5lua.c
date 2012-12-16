@@ -68,7 +68,7 @@ static int h5lua_H5O_info_t__index(lua_State *L)
 }
 static int h5lua_H5O_info_t__newindex(lua_State *L)
 {
-  hsize_t *i = (hsize_t*) luaL_checkudata(L, 1, "HDF5::H5O_info_t");
+  luaL_checkudata(L, 1, "HDF5::H5O_info_t");
   luaL_error(L, "object does not support item assignment");
   return 0;
 }
@@ -127,6 +127,61 @@ static int h5lua_hsize_t_arr__newindex(lua_State *L)
 }
 
 
+
+
+
+// -----------------------------------------------------------------------------
+// double_arr
+// -----------------------------------------------------------------------------
+static void lh5_push_double_arr(lua_State *L, double *hs, unsigned int N)
+{
+  memcpy(lua_newuserdata(L, sizeof(double) * N), hs, sizeof(double) * N);
+  luaL_setmetatable(L, "HDF5::double_arr");
+}
+static int h5lua_new_double_arr(lua_State *L)
+{
+  unsigned int n = 0, N = luaL_checkunsigned(L, 1);
+  double *hs = (double*) malloc(sizeof(double) * N);
+  while (n < N) {
+    hs[n] = 0.0;    
+    ++n;
+  }
+  lh5_push_double_arr(L, hs, N);
+  free(hs);
+  return 1;
+}
+static int h5lua_double_arr__index(lua_State *L)
+{
+  double *lhs = (double*) luaL_checkudata(L, 1, "HDF5::double_arr");
+  unsigned int n = luaL_checkunsigned(L, 2);
+  unsigned int N = lua_rawlen(L, 1) / sizeof(double);
+  if (n < N) {
+    lua_pushnumber(L, lhs[n]);
+  }
+  else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+static int h5lua_double_arr__newindex(lua_State *L)
+{
+  double *lhs = (double*) luaL_checkudata(L, 1, "HDF5::double_arr");
+  unsigned int n = luaL_checkunsigned(L, 2);
+  double val = luaL_checkunsigned(L, 3);
+  unsigned int N = lua_rawlen(L, 1) / sizeof(double);
+  if (n < N) {
+    lhs[n] = val;
+  }
+  else {
+    luaL_error(L, "index %d out of range on array of length %d", n, N);
+  }
+  return 1;
+}
+
+
+
+
+
 // -----------------------------------------------------------------------------
 // By-hand wrappers
 // -----------------------------------------------------------------------------
@@ -170,6 +225,7 @@ int luaopen_h5lua(lua_State *L)
     {"new_hid_t", h5lua_new_hid_t},
     {"new_herr_t", h5lua_new_herr_t},
     {"new_H5O_info_t", h5lua_new_H5O_info_t},
+    {"new_double_arr", h5lua_new_double_arr},
     {"new_hsize_t_arr", h5lua_new_hsize_t_arr},
     {NULL, NULL}};
 
@@ -187,6 +243,14 @@ int luaopen_h5lua(lua_State *L)
     {NULL, NULL}};
   luaL_newmetatable(L, "HDF5::hsize_t_arr");
   luaL_setfuncs(L, hsize_t_arr_meta, 0);
+  lua_pop(L, 1);
+
+  luaL_Reg double_arr_meta[] = {
+    {"__index", h5lua_double_arr__index},
+    {"__newindex", h5lua_double_arr__newindex},
+    {NULL, NULL}};
+  luaL_newmetatable(L, "HDF5::double_arr");
+  luaL_setfuncs(L, double_arr_meta, 0);
   lua_pop(L, 1);
 
   luaL_newmetatable(L, "HDF5::hid_t");
