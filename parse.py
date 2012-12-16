@@ -98,7 +98,7 @@ class FunctionPrototype(object):
             ret_statement = "lh5_push_herr_t(L, res);"
         elif self.ret_type == "htri_t":
             ret_statement = "lua_pushboolean(L, res);"
-        elif self.ret_type in ["ssize_t", "size_t", "int"]:
+        elif self.ret_type in ["ssize_t", "hssize_t", "size_t", "int"]:
             ret_statement = "lua_pushnumber(L, res);"
         else:
             self.failed.append(self.func_name)

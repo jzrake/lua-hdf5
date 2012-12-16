@@ -177,6 +177,15 @@ end
 --------------------------------------------------------------------------------
 local DataSetClass = inherit_from(BaseClass)
 
+function DataSetClass:write(buffer)
+   local spc = H5.H5Dget_space(self._hid)
+   local typ = H5.H5Dget_type(self._hid)
+   local siz = H5.H5Tget_size(typ)
+   if H5.H5Sget_select_npoints(spc) * siz ~= #buffer then
+      error("dataspace selection does not match buffer size")
+   end
+   H5.H5Dwrite(self._hid, typ, spc, spc, hp0, buffer)
+end
 local DataSetMeta = inherit_from(BaseMeta)
 function DataSetMeta:__tostring()
    if self._hid ~= 0 then
@@ -404,7 +413,7 @@ local function test4()
    assert(size[3] == 14)
 end
 
-local function test5()
+local function test5() -- depends on test3 being run first
    local file = hdf5.File("outfile.h5", "r")
    local dset = hdf5.DataSet(file["thegroup3"], "message")
    dset:close()
@@ -415,8 +424,11 @@ local function test6()
    local file = hdf5.File("outfile.h5", "w")
    local fspc = hdf5.DataSpace('simple')
    local type = hdf5.DataType('double')
-   fspc:set_extent{16,32,32}
-   local dset = hdf5.DataSet(file, "message", fspc, type)
+   fspc:set_extent{4,4,8}
+
+   local dset = hdf5.DataSet(file, "data", fspc, type)
+   local buffer = buffer.new_buffer(4*4*8*8)
+   dset:write(buffer)
    file:close()
 end
 

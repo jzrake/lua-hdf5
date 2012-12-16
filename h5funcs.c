@@ -540,6 +540,13 @@ static int h5lua_H5Funmount(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Fget_freespace(lua_State *L)
+{
+  hid_t file_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hssize_t res = H5Fget_freespace(file_id);
+  lua_pushnumber(L, res);
+  return 1;
+}
 static int h5lua_H5Fget_filesize(lua_State *L)
 {
   hid_t file_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -566,6 +573,7 @@ static luaL_Reg H5F_funcs[] = {
   {"H5Fget_obj_count", h5lua_H5Fget_obj_count},
   {"H5Fmount", h5lua_H5Fmount},
   {"H5Funmount", h5lua_H5Funmount},
+  {"H5Fget_freespace", h5lua_H5Fget_freespace},
   {"H5Fget_filesize", h5lua_H5Fget_filesize},
   {"H5Freset_mdc_hit_rate_stats", h5lua_H5Freset_mdc_hit_rate_stats},
   {NULL,NULL}};
@@ -1583,6 +1591,13 @@ static int h5lua_H5Sdecode(lua_State *L)
   lh5_push_hid_t(L, res);
   return 1;
 }
+static int h5lua_H5Sget_simple_extent_npoints(lua_State *L)
+{
+  hid_t space_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hssize_t res = H5Sget_simple_extent_npoints(space_id);
+  lua_pushnumber(L, res);
+  return 1;
+}
 static int h5lua_H5Sget_simple_extent_ndims(lua_State *L)
 {
   hid_t space_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -1604,6 +1619,13 @@ static int h5lua_H5Sis_simple(lua_State *L)
   hid_t space_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   htri_t res = H5Sis_simple(space_id);
   lua_pushboolean(L, res);
+  return 1;
+}
+static int h5lua_H5Sget_select_npoints(lua_State *L)
+{
+  hid_t spaceid = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hssize_t res = H5Sget_select_npoints(spaceid);
+  lua_pushnumber(L, res);
   return 1;
 }
 static int h5lua_H5Sselect_hyperslab(lua_State *L)
@@ -1672,6 +1694,20 @@ static int h5lua_H5Sselect_valid(lua_State *L)
   lua_pushboolean(L, res);
   return 1;
 }
+static int h5lua_H5Sget_select_hyper_nblocks(lua_State *L)
+{
+  hid_t spaceid = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hssize_t res = H5Sget_select_hyper_nblocks(spaceid);
+  lua_pushnumber(L, res);
+  return 1;
+}
+static int h5lua_H5Sget_select_elem_npoints(lua_State *L)
+{
+  hid_t spaceid = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  hssize_t res = H5Sget_select_elem_npoints(spaceid);
+  lua_pushnumber(L, res);
+  return 1;
+}
 static int h5lua_H5Sget_select_hyper_blocklist(lua_State *L)
 {
   hid_t spaceid = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -1708,9 +1744,11 @@ static luaL_Reg H5S_funcs[] = {
   {"H5Scopy", h5lua_H5Scopy},
   {"H5Sclose", h5lua_H5Sclose},
   {"H5Sdecode", h5lua_H5Sdecode},
+  {"H5Sget_simple_extent_npoints", h5lua_H5Sget_simple_extent_npoints},
   {"H5Sget_simple_extent_ndims", h5lua_H5Sget_simple_extent_ndims},
   {"H5Sget_simple_extent_dims", h5lua_H5Sget_simple_extent_dims},
   {"H5Sis_simple", h5lua_H5Sis_simple},
+  {"H5Sget_select_npoints", h5lua_H5Sget_select_npoints},
   {"H5Sselect_hyperslab", h5lua_H5Sselect_hyperslab},
   {"H5Sselect_elements", h5lua_H5Sselect_elements},
   {"H5Sset_extent_none", h5lua_H5Sset_extent_none},
@@ -1719,6 +1757,8 @@ static luaL_Reg H5S_funcs[] = {
   {"H5Sselect_all", h5lua_H5Sselect_all},
   {"H5Sselect_none", h5lua_H5Sselect_none},
   {"H5Sselect_valid", h5lua_H5Sselect_valid},
+  {"H5Sget_select_hyper_nblocks", h5lua_H5Sget_select_hyper_nblocks},
+  {"H5Sget_select_elem_npoints", h5lua_H5Sget_select_elem_npoints},
   {"H5Sget_select_hyper_blocklist", h5lua_H5Sget_select_hyper_blocklist},
   {"H5Sget_select_elem_pointlist", h5lua_H5Sget_select_elem_pointlist},
   {"H5Sget_select_bounds", h5lua_H5Sget_select_bounds},
