@@ -1,5 +1,6 @@
 
 local H5 = require 'h5lua'
+local buffer = require 'buffer'
 
 local def = H5.H5P_DEFAULT
 local trunc = H5.H5F_ACC_TRUNC
@@ -15,7 +16,7 @@ H5.H5Sset_extent_simple(sid, 3, current_size, maximum_size)
 local did = H5.H5Dcreate2(fid, "dataset", double, sid, def, def, def)
 local dif = H5.H5Dcreate2(fid, "fataset", double, sid, def, def, def)
 
-H5.H5Dwrite(did, double, sid, sid, def, H5.new_double_arr(1000))
+H5.H5Dwrite(did, double, sid, sid, def, buffer.new_buffer(1000 * 8))
 
 local idx = H5.new_hsize_t_arr{0}
 local link_names = { }
@@ -50,3 +51,5 @@ hs[0] = 8
 assert(hs[0] == 8)
 assert(not pcall(function() hs[-1] = 8 end))
 assert(not pcall(function() hs[3] = 8 end))
+
+print "All tests passed"

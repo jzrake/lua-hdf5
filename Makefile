@@ -9,7 +9,10 @@ default : main
 h5lua.o : h5lua.c
 	$(CC) -Wall -c -o $@ $< $(LUA_I) $(HDF5_I)
 
-main : main.o h5lua.o
+buffer.o : buffer.c
+	$(CC) -Wall -c -o $@ $< $(LUA_I)
+
+main : main.o h5lua.o buffer.o
 	$(CC) -Wall -o $@ $^ $(LUA_I) $(LUA_A) $(HDF5_L)
 
 clean :

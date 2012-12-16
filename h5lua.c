@@ -167,7 +167,7 @@ static int h5lua_double_arr__newindex(lua_State *L)
 {
   double *lhs = (double*) luaL_checkudata(L, 1, "HDF5::double_arr");
   unsigned int n = luaL_checkunsigned(L, 2);
-  double val = luaL_checkunsigned(L, 3);
+  double val = luaL_checknumber(L, 3);
   unsigned int N = lua_rawlen(L, 1) / sizeof(double);
   if (n < N) {
     lhs[n] = val;
@@ -258,8 +258,10 @@ int luaopen_h5lua(lua_State *L)
   luaL_newmetatable(L, "HDF5::herr_t");
   lua_pop(L, 1);
 
-  //  lua_getglobal(L, "package");
-  //  lua_getfield(L, -1, "loaded");
+
+  // ---------------------------------------------------------------------------
+  // Module definition
+  // ---------------------------------------------------------------------------
   lua_newtable(L);
   luaL_setfuncs(L, h5lua_types, 0);
   luaL_setfuncs(L, H5A_funcs, 0);
