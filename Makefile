@@ -1,6 +1,6 @@
 
-LUA_A = ../lua-5.2.1/lib/liblua.a
-LUA_I = -I../lua-5.2.1/include
+LUA_A = lua-5.2.1/lib/liblua.a
+LUA_I = -Ilua-5.2.1/include
 HDF5_I = -I/Library/Science/hdf5/include
 HDF5_L = -L/Library/Science/hdf5/lib -lz -lhdf5
 
