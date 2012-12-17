@@ -1,11 +1,18 @@
 
 import re
 
-hdf5_dir = "/Library/Science/hdf5-1.8.10"
+# Read the HDF5 include directory from the Makefile.in
+hdf5_inc = dict([tuple(p) for p in
+                 ["".join([c for c in x if c not in [" ", "\n"]]).split('=')
+                  for x in [d for d in open("Makefile.in").readlines() if
+                            d.strip()]]])['HDF5_I'].replace('-I', '')
+
+# Function prototypes not to wrap
 dont_wrap = ["H5Tenum_nameof",
              "H5Scombine_select",
              "H5Sselect_select",
              "H5Scombine_hyperslab"]
+
 
 class FunctionPrototype(object):
     passed = [ ]
@@ -135,7 +142,7 @@ def stripcomments(text):
 
 
 def header_functions(prefix, outfile=None, byhand=[], extras=[]):
-    f = open(hdf5_dir + "/include/H5%spublic.h" % prefix)
+    f = open(hdf5_inc + "/H5%spublic.h" % prefix)
     passed = [ ]
     failed = [ ]
     raw = stripcomments(f.read())
@@ -158,7 +165,7 @@ def header_functions(prefix, outfile=None, byhand=[], extras=[]):
                                 for n in (passed + byhand)])))
 
 def H5F():
-    f = open(hdf5_dir + "/include/H5Fpublic.h")
+    f = open(hdf5_inc + "/H5Fpublic.h")
     for line in f:
         target = re.compile(r"#define (H5F_\w+)\s*")
         m = target.match(line)
@@ -168,7 +175,7 @@ def H5F():
                 print "  REG_NUMBER(%s);" % s
 
 def H5S():
-    f = open(hdf5_dir + "/include/H5Spublic.h")    
+    f = open(hdf5_inc + "/H5Spublic.h")    
     for line in f:
         target = re.compile(r"\s*(H5S_\w+).*")
         m = target.match(line)
@@ -177,7 +184,7 @@ def H5S():
             print "  REG_NUMBER(%s);" % s
 
 def H5T():
-    f = open(hdf5_dir + "/include/H5Tpublic.h")    
+    f = open(hdf5_inc + "/H5Tpublic.h")    
     for line in f:
         target = re.compile(r"#define (H5T_\w+)\s*")
         m = target.match(line)
@@ -186,7 +193,7 @@ def H5T():
             print "  REG_HID(%s);" % s
 
 def H5P():
-    f = open(hdf5_dir + "/include/H5Ppublic.h")    
+    f = open(hdf5_inc + "/H5Ppublic.h")    
     for line in f:
         target = re.compile(r"#define (H5P_\w+)\s*")
         m = target.match(line)
@@ -195,7 +202,7 @@ def H5P():
             print "  REG_HID(%s);" % s
 
 def H5O():
-    f = open(hdf5_dir + "/include/H5Opublic.h")    
+    f = open(hdf5_inc + "/H5Opublic.h")    
     for line in f:
         target = re.compile(r"\s*(H5O_T\w+).*")
         m = target.match(line)
@@ -204,7 +211,7 @@ def H5O():
             print "  REG_NUMBER(%s);" % s
 
 def H5L():
-    f = open(hdf5_dir + "/include/H5Lpublic.h")    
+    f = open(hdf5_inc + "/H5Lpublic.h")    
     for line in f:
         target = re.compile(r"\s*(H5L_T\w+).*")
         m = target.match(line)
@@ -213,7 +220,7 @@ def H5L():
             print "  REG_NUMBER(%s);" % s
 
 def H5():
-    f = open(hdf5_dir + "/include/H5public.h")    
+    f = open(hdf5_inc + "/H5public.h")    
     for line in f:
         target = re.compile(r"\s*(H5_\w+).*")
         m = target.match(line)

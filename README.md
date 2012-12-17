@@ -38,6 +38,12 @@ it flexible interaction with HDF5.
 
 # Build instructions
 
+Make sure you have the [HDF5
+sources](http://www.hdfgroup.org/HDF5/release/obtain5.html) installed.
+
+
+Optionally, you may install local Lua sources by typing `make lua`.
+
 Create a file called Makefile.in which contains macros like these:
 
     LUA_I = -I/path/to/lua-5.2.1/include
@@ -46,7 +52,22 @@ Create a file called Makefile.in which contains macros like these:
     HDF5_I = -I/path/to/hdf5/include
     HDF5_L = -L/path/to/hdf5/lib -lz -lhdf5
 
-Then type `make`.
+
+Additional compile flags are optional:
+
+    CC = gcc
+    CFLAGS = -Wall -O2
+    LVER = lua-5.2.1 # can be lua-5.1 or other
+
+Run `python parse.py` in order to generate wrapper code for your own HDF5
+library version.
+
+Run `make`.
+
+
+# Running tests
+
+Type `./main alltests.lua`.
 
 
 # Compatibility and conventions
