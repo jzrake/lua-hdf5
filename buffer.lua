@@ -32,8 +32,20 @@ assert(bv._skip[1] == 10)
 assert(bv._skip[2] == 2)
 assert(bv._skip[3] == 1)
 
-for i=0,99 do bv[i] = i end
-assert(bv[{9,4,1}] == 99)
+for i=0,9 do
+   for j=0,4 do
+      for k=0,1 do
+	 bv[{i,j,k}] = i + j + k
+      end
+   end
+end
+for i=0,9 do
+   for j=0,4 do
+      for k=0,1 do
+	 assert(bv[{i,j,k}] == i + j + k)
+      end
+   end
+end
 
 print(debug.getinfo(1).source, ": All tests passed")
 

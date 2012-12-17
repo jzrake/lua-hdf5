@@ -69,27 +69,29 @@ function buffer.view(buf, dtype, start, size, stride)
 
    local mt = { }
    function mt:__index(ind)
-      if type(ind) == 'number' then
-	 error("index must be a table")
-      end
-      if #ind ~= self._rank then
-	 error("wrong number of indices")
-      end
+      if type(ind) ~= 'table' then error("index must be a table") end
+      if #ind ~= self._rank then error("wrong number of indices") end
       local n = 0
-
       for i=1,self._rank do
 	 if ind[i] < 0 or ind[i] >= self._size[i] then
 	    error("index out of bounds")
 	 end
 	 n = n + (ind[i] + self._start[i]) * self._stride[i] * self._skip[i]
       end
-
       return buffer.get_typed(self._buf, self._dtype_string, n)
    end
 
    function mt:__newindex(ind, value)
-      -- implement!
-      return buffer.set_typed(self._buf, self._dtype_string, ind, value)
+      if type(ind) ~= 'table' then error("index must be a table") end
+      if #ind ~= self._rank then error("wrong number of indices") end
+      local n = 0
+      for i=1,self._rank do
+	 if ind[i] < 0 or ind[i] >= self._size[i] then
+	    error("index out of bounds")
+	 end
+	 n = n + (ind[i] + self._start[i]) * self._stride[i] * self._skip[i]
+      end
+      return buffer.set_typed(self._buf, self._dtype_string, n, value)
    end
    function mt:__len(ind) return self._elem end
    setmetatable(new, mt)
