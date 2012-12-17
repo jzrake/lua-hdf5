@@ -223,9 +223,9 @@ end
 --------------------------------------------------------------------------------
 -- HDF5 DataType class methods
 --------------------------------------------------------------------------------
-local DataTypeClass = inherit_from(IndexableClass)
+local DataTypeClass = inherit_from(BaseClass)
 
-local DataTypeMeta = inherit_from(IndexableMeta)
+local DataTypeMeta = inherit_from(BaseMeta)
 function DataTypeMeta:__tostring()
    if self._hid ~= 0 then
       return string.format("<HDF5 data type: \"%s\">", self._name)
@@ -465,11 +465,13 @@ local function test6()
    local dset = hdf5.DataSet(file, "data1d", fspc, type)
    local buf = buffer.new_buffer(4*4*8*8)
    dset:write(buf)
-   file["data3d"] = buffer.view(buf, 'double', {0,0,0}, {2,2,2}, {2,2,2})
+   local array = buffer.view(buf, 'double', {0,0,0}, {2,2,2}, {2,2,2})
+   file["data3d"] = array
    file:close()
 
    local file = hdf5.File("outfile.h5", "r")
    assert(#file["data3d"]:read() == 64)
+   file:close()
 end
 
 test1()
