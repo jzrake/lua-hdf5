@@ -1,6 +1,6 @@
 
 local buffer = require 'buffer'
-local view = require 'view'
+
 local b = buffer.new_buffer("the buffer data")
 
 assert(#b == 15)
@@ -22,13 +22,17 @@ buffer.set_typed(arr, buffer.double, 0, 1.5)
 assert(buffer.get_typed(arr, buffer.double, 0) == 1.5)
 
 local buf = buffer.new_buffer(100 * 8)
-local start = {0,0}
-local size = {10,10}
-local bv = view.view(buf, 'double', start, size)
+local start = {0,0,0}
+local size = {10,5,2}
+local bv = buffer.view(buf, 'double', start, size)
 
 assert(#bv == 100)
-bv[99] = 1.5
-assert(bv[99] == 1.5)
+assert(bv._skip[1] == 10)
+assert(bv._skip[2] == 2)
+assert(bv._skip[3] == 1)
+
+for i=0,99 do bv[i] = i end
+assert(bv[{9,4,1}] == 99)
 
 print(debug.getinfo(1).source, ": All tests passed")
 
