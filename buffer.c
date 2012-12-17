@@ -77,7 +77,7 @@ static int buffer_get_typed(lua_State *L)
 #define CASE(t)								\
   do {									\
     offset = n * sizeof(t);						\
-    if (offset > N) luaL_error(L, "buffer: index out of range");	\
+    if (offset >= N) luaL_error(L, "buffer: index out of range");	\
     lua_pushnumber(L, *((t*)(buf + offset)));				\
   } while(0)								\
 
@@ -105,7 +105,7 @@ static int buffer_set_typed(lua_State *L)
 #define CASE(t)								\
   do {									\
     offset = n * sizeof(t);						\
-    if (offset > N) luaL_error(L, "buffer: index out of range");	\
+    if (offset >= N) luaL_error(L, "buffer: index out of range");	\
     *((t*)(buf + offset)) = v;						\
   } while(0)								\
 

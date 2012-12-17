@@ -452,6 +452,6 @@ test4()
 test5()
 test6()
 
-print "All tests passed"
+print(debug.getinfo(1).source, ": All tests passed")
 
 return hdf5

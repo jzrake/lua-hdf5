@@ -99,4 +99,4 @@ H5.H5Tclose(strn)
 H5.H5Dclose(dset)
 H5.H5Fclose(file)
 
-print "All tests passed"
+print(debug.getinfo(1).source, ": All tests passed")

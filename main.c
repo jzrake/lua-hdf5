@@ -7,7 +7,15 @@
 
 int luaopen_h5lua(lua_State *L);
 int luaopen_buffer(lua_State *L);
-
+int luaopen_view(lua_State *L)
+{
+  int err = luaL_dofile(L, "view.lua");
+  if (err) {
+    const char *msg = lua_tostring(L, -1);
+    luaL_error(L, msg);
+  }
+  return 1;
+}
 
 int main(int argc, char **argv)
 {
@@ -16,6 +24,7 @@ int main(int argc, char **argv)
   luaL_openlibs(L);
   luaL_requiref(L, "h5lua", luaopen_h5lua, 0);
   luaL_requiref(L, "buffer", luaopen_buffer, 0);
+  luaL_requiref(L, "view", luaopen_view, 0);
 
 
   // Create the global `arg` table
