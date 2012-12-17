@@ -45,6 +45,9 @@ static int buffer_new_buffer(lua_State *L)
     N = lua_rawlen(L, 1);
     buf = lua_tostring(L, 1);
     break;
+  default:
+    N = 0;
+    luaL_error(L, "buffer: argument must be either number or string");
   }
   buf_push_buffer(L, buf, N);
   return 1;
