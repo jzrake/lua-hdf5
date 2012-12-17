@@ -8,10 +8,10 @@
 #include "lauxlib.h"
 
 enum { 
-  BUFFER_TYPE_INT,
-  BUFFER_TYPE_CHAR,
-  BUFFER_TYPE_FLOAT,
-  BUFFER_TYPE_DOUBLE,
+  BUFFER_TYPE_INT=1,
+  BUFFER_TYPE_CHAR=2,
+  BUFFER_TYPE_FLOAT=3,
+  BUFFER_TYPE_DOUBLE=4,
 } ;
 
 // -----------------------------------------------------------------------------

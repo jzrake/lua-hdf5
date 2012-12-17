@@ -128,6 +128,19 @@ function IndexableMeta:__newindex(key, value)
       H5.H5Dclose(dset)
       H5.H5Tclose(strn)
       H5.H5Sclose(fspc)
+   elseif value.buffer and value.dtype and value.selection then
+      --------------------------------------------------------------------------
+      -- If the buffer, dtype, and selection methods are given, assume their
+      -- behavior is like that of buffer.view, and we can write to a buffer
+      -- automatically.
+      --------------------------------------------------------------------------
+      local start, size, stride, block = value:selection()
+      local mspc = hdf5.DataSpace()
+      mspc:set_extent(size)
+      mspc:select_hyperslab(start, size, stride, block)
+      local dtyp = hdf5.DataType(value:dtype())
+      local dset = hdf5.DataSet(self, key, mspc, dtyp)
+      dset:write(value:buffer())
    else
       error("unrecognized type for writing")
    end
@@ -177,14 +190,14 @@ end
 --------------------------------------------------------------------------------
 local DataSetClass = inherit_from(BaseClass)
 
-function DataSetClass:write(buffer)
+function DataSetClass:write(buf)
    local spc = H5.H5Dget_space(self._hid)
    local typ = H5.H5Dget_type(self._hid)
    local siz = H5.H5Tget_size(typ)
-   if H5.H5Sget_select_npoints(spc) * siz ~= #buffer then
-      error("dataspace selection does not match buffer size")
+   if H5.H5Sget_select_npoints(spc) * siz > #buf then
+      error("dataspace selection is too large for buffer")
    end
-   H5.H5Dwrite(self._hid, typ, spc, spc, hp0, buffer)
+   H5.H5Dwrite(self._hid, typ, spc, spc, hp0, buf)
 end
 
 function DataSetClass:read()
@@ -192,9 +205,9 @@ function DataSetClass:read()
    local typ = H5.H5Dget_type(self._hid)
    local siz = H5.H5Tget_size(typ)
    local bytes = H5.H5Sget_select_npoints(spc) * siz
-   local buffer = buffer.new_buffer(bytes)
-   H5.H5Dread(self._hid, typ, spc, spc, hp0, buffer)
-   return buffer
+   local buf = buffer.new_buffer(bytes)
+   H5.H5Dread(self._hid, typ, spc, spc, hp0, buf)
+   return buf
 end
 
 local DataSetMeta = inherit_from(BaseMeta)
@@ -233,6 +246,17 @@ function DataSpaceClass:set_extent(extent)
    local current_size = H5.new_hsize_t_arr(extent)
    local maximum_size = H5.new_hsize_t_arr(extent)
    H5.H5Sset_extent_simple(self._hid, #extent, current_size, maximum_size)
+end
+function DataSpaceClass:select_hyperslab(start, size, stride, block)
+   if self._hid == 0 then
+      error("DataSpaceClass:set_hyperslab cannot operate on closed data space")
+   end
+   local hstart = H5.new_hsize_t_arr(start)
+   local hsize = H5.new_hsize_t_arr(size)
+   local hstride = H5.new_hsize_t_arr(stride)
+   local hblock = H5.new_hsize_t_arr(block)
+   H5.H5Sselect_hyperslab(self._hid, H5.H5S_SELECT_SET, hstart, hsize, hstride,
+			  hblock)
 end
 function DataSpaceClass:get_extent(type)
    if self._hid == 0 then
@@ -351,7 +375,6 @@ function hdf5.DataType(typeid)
 		 _hid=0,
 		 _close=H5.H5Tclose }
    inherit_from(DataTypeClass, new)
-  
    local typedict = {char=H5.H5T_NATIVE_CHAR,
 		     int=H5.H5T_NATIVE_INT,
 		     float=H5.H5T_NATIVE_FLOAT,
@@ -427,8 +450,8 @@ end
 local function test5() -- depends on test3 being run first
    local file = hdf5.File("outfile.h5", "r")
    local dset = hdf5.DataSet(file["thegroup3"], "message")
-   local buffer = dset:read()
-   assert(tostring(buffer) == "the message content")
+   local buf = dset:read()
+   assert(tostring(buf) == "the message content")
    dset:close()
    file:close()
 end
@@ -439,10 +462,14 @@ local function test6()
    local type = hdf5.DataType('double')
    fspc:set_extent{4,4,8}
 
-   local dset = hdf5.DataSet(file, "data", fspc, type)
-   local buffer = buffer.new_buffer(4*4*8*8)
-   dset:write(buffer)
+   local dset = hdf5.DataSet(file, "data1d", fspc, type)
+   local buf = buffer.new_buffer(4*4*8*8)
+   dset:write(buf)
+   file["data3d"] = buffer.view(buf, 'double', {0,0,0}, {2,2,2}, {2,2,2})
    file:close()
+
+   local file = hdf5.File("outfile.h5", "r")
+   assert(#file["data3d"]:read() == 64)
 end
 
 test1()
