@@ -13,17 +13,18 @@ assert(b[0] == 127)
 assert(b[1] == -128)
 
 assert(not pcall(function() b[100] = 0 end))
-local arr = buffer.new_buffer(buffer.sizeof(buffer.double)) -- a single double
+local arr = buffer.new_buffer(buffer.sizeof('double')) -- just one double
 
-assert(buffer.sizeof(buffer.char) == 1)
-assert(buffer.sizeof(buffer.double) == 8)
+assert(buffer.sizeof('char') == 1)
+assert(buffer.sizeof('double') == 8)
 
-buffer.set_typed(arr, buffer.double, 0, 1.5)
-assert(buffer.get_typed(arr, buffer.double, 0) == 1.5)
+buffer.set_typed(arr, 'double', 0, 1.5)
+assert(buffer.get_typed(arr, 'double', 0) == 1.5)
 
 local buf = buffer.new_buffer(100 * 8)
 local start = {0,0,0}
 local size = {10,5,2}
+
 local bv = buffer.view(buf, 'double', start, size)
 
 assert(#bv == 100)

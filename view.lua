@@ -1,8 +1,21 @@
 
 local buffer = require 'buffer'
 
+--------------------------------------------------------------------------------
+-- Better to use string names to identify C data types in Lua. This code wraps
+-- the C functions and converts the string to corresponding enum.
+--------------------------------------------------------------------------------
+local sizeof = buffer.sizeof
+local get_typed = buffer.get_typed
+local set_typed = buffer.set_typed
+
+function buffer.sizeof(T) return sizeof(buffer[T]) end
+function buffer.get_typed(buf, T, n) return get_typed(buf, buffer[T], n) end
+function buffer.set_typed(buf, T, n, v) set_typed(buf, buffer[T], n, v) end
+
+
 function buffer.view(buf, dtype, start, size, stride)
-   local sz =  buffer.sizeof(buffer[dtype])
+   local sz =  buffer.sizeof(dtype)
    local start = start or { 0 }
    local size = size or { #buf/sz }
    local stride = stride or { }
@@ -71,12 +84,12 @@ function buffer.view(buf, dtype, start, size, stride)
 	 n = n + (ind[i] + self._start[i]) * self._stride[i] * self._skip[i]
       end
 
-      return buffer.get_typed(self._buf, self._dtype, n)
+      return buffer.get_typed(self._buf, self._dtype_string, n)
    end
 
    function mt:__newindex(ind, value)
       -- implement!
-      return buffer.set_typed(self._buf, self._dtype, ind, value)
+      return buffer.set_typed(self._buf, self._dtype_string, ind, value)
    end
    function mt:__len(ind) return self._elem end
    setmetatable(new, mt)
