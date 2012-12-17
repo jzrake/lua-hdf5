@@ -555,10 +555,26 @@ static int h5lua_H5Fget_filesize(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Fget_file_image(lua_State *L)
+{
+  hid_t file_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  void *buf_ptr = lua_touserdata(L, 2); luaL_checktype(L, 2, LUA_TUSERDATA);
+  size_t buf_len = luaL_checkunsigned(L, 3);
+  ssize_t res = H5Fget_file_image(file_id, buf_ptr, buf_len);
+  lua_pushnumber(L, res);
+  return 1;
+}
 static int h5lua_H5Freset_mdc_hit_rate_stats(lua_State *L)
 {
   hid_t file_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   herr_t res = H5Freset_mdc_hit_rate_stats(file_id);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Fclear_elink_file_cache(lua_State *L)
+{
+  hid_t file_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  herr_t res = H5Fclear_elink_file_cache(file_id);
   lh5_push_herr_t(L, res);
   return 1;
 }
@@ -575,7 +591,9 @@ static luaL_Reg H5F_funcs[] = {
   {"H5Funmount", h5lua_H5Funmount},
   {"H5Fget_freespace", h5lua_H5Fget_freespace},
   {"H5Fget_filesize", h5lua_H5Fget_filesize},
+  {"H5Fget_file_image", h5lua_H5Fget_file_image},
   {"H5Freset_mdc_hit_rate_stats", h5lua_H5Freset_mdc_hit_rate_stats},
+  {"H5Fclear_elink_file_cache", h5lua_H5Fclear_elink_file_cache},
   {NULL,NULL}};
 
 static int h5lua_H5Gcreate2(lua_State *L)
@@ -849,6 +867,15 @@ static int h5lua_H5Oopen(lua_State *L)
   lh5_push_hid_t(L, res);
   return 1;
 }
+static int h5lua_H5Oexists_by_name(lua_State *L)
+{
+  hid_t loc_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const char *name = luaL_checkstring(L, 2);
+  hid_t lapl_id = *((hid_t*) luaL_checkudata(L, 3, "HDF5::hid_t"));
+  htri_t res = H5Oexists_by_name(loc_id, name, lapl_id);
+  lua_pushboolean(L, res);
+  return 1;
+}
 static int h5lua_H5Oget_info(lua_State *L)
 {
   hid_t loc_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -931,6 +958,7 @@ static int h5lua_H5Oclose(lua_State *L)
 }
 static luaL_Reg H5O_funcs[] = {
   {"H5Oopen", h5lua_H5Oopen},
+  {"H5Oexists_by_name", h5lua_H5Oexists_by_name},
   {"H5Oget_info", h5lua_H5Oget_info},
   {"H5Oget_info_by_name", h5lua_H5Oget_info_by_name},
   {"H5Olink", h5lua_H5Olink},
@@ -1065,6 +1093,35 @@ static int h5lua_H5Pset_attr_creation_order(lua_State *L)
   hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   unsigned crt_order_flags = luaL_checkunsigned(L, 2);
   herr_t res = H5Pset_attr_creation_order(plist_id, crt_order_flags);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pget_nfilters(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  int res = H5Pget_nfilters(plist_id);
+  lua_pushnumber(L, res);
+  return 1;
+}
+static int h5lua_H5Pall_filters_avail(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  htri_t res = H5Pall_filters_avail(plist_id);
+  lua_pushboolean(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_deflate(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  unsigned aggression = luaL_checkunsigned(L, 2);
+  herr_t res = H5Pset_deflate(plist_id, aggression);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_fletcher32(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  herr_t res = H5Pset_fletcher32(plist_id);
   lh5_push_herr_t(L, res);
   return 1;
 }
@@ -1235,6 +1292,23 @@ static int h5lua_H5Pget_small_data_block_size(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Pset_elink_file_cache_size(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  unsigned efc_size = luaL_checkunsigned(L, 2);
+  herr_t res = H5Pset_elink_file_cache_size(plist_id, efc_size);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pset_file_image(lua_State *L)
+{
+  hid_t fapl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  void *buf_ptr = lua_touserdata(L, 2); luaL_checktype(L, 2, LUA_TUSERDATA);
+  size_t buf_len = luaL_checkunsigned(L, 3);
+  herr_t res = H5Pset_file_image(fapl_id, buf_ptr, buf_len);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
 static int h5lua_H5Pset_chunk(lua_State *L)
 {
   hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -1260,28 +1334,6 @@ static int h5lua_H5Pget_external_count(lua_State *L)
   lua_pushnumber(L, res);
   return 1;
 }
-static int h5lua_H5Pget_nfilters(lua_State *L)
-{
-  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  int res = H5Pget_nfilters(plist_id);
-  lua_pushnumber(L, res);
-  return 1;
-}
-static int h5lua_H5Pall_filters_avail(lua_State *L)
-{
-  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  htri_t res = H5Pall_filters_avail(plist_id);
-  lua_pushboolean(L, res);
-  return 1;
-}
-static int h5lua_H5Pset_deflate(lua_State *L)
-{
-  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  unsigned aggression = luaL_checkunsigned(L, 2);
-  herr_t res = H5Pset_deflate(plist_id, aggression);
-  lh5_push_herr_t(L, res);
-  return 1;
-}
 static int h5lua_H5Pset_szip(lua_State *L)
 {
   hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
@@ -1302,13 +1354,6 @@ static int h5lua_H5Pset_nbit(lua_State *L)
 {
   hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   herr_t res = H5Pset_nbit(plist_id);
-  lh5_push_herr_t(L, res);
-  return 1;
-}
-static int h5lua_H5Pset_fletcher32(lua_State *L)
-{
-  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
-  herr_t res = H5Pset_fletcher32(plist_id);
   lh5_push_herr_t(L, res);
   return 1;
 }
@@ -1444,6 +1489,21 @@ static int h5lua_H5Pset_copy_object(lua_State *L)
   lh5_push_herr_t(L, res);
   return 1;
 }
+static int h5lua_H5Padd_merge_committed_dtype_path(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  const char *path = luaL_checkstring(L, 2);
+  herr_t res = H5Padd_merge_committed_dtype_path(plist_id, path);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
+static int h5lua_H5Pfree_merge_committed_dtype_paths(lua_State *L)
+{
+  hid_t plist_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  herr_t res = H5Pfree_merge_committed_dtype_paths(plist_id);
+  lh5_push_herr_t(L, res);
+  return 1;
+}
 static luaL_Reg H5P_funcs[] = {
   {"H5Pcreate", h5lua_H5Pcreate},
   {"H5Pset", h5lua_H5Pset},
@@ -1461,6 +1521,10 @@ static luaL_Reg H5P_funcs[] = {
   {"H5Pcopy", h5lua_H5Pcopy},
   {"H5Pset_attr_phase_change", h5lua_H5Pset_attr_phase_change},
   {"H5Pset_attr_creation_order", h5lua_H5Pset_attr_creation_order},
+  {"H5Pget_nfilters", h5lua_H5Pget_nfilters},
+  {"H5Pall_filters_avail", h5lua_H5Pall_filters_avail},
+  {"H5Pset_deflate", h5lua_H5Pset_deflate},
+  {"H5Pset_fletcher32", h5lua_H5Pset_fletcher32},
   {"H5Pset_userblock", h5lua_H5Pset_userblock},
   {"H5Pget_userblock", h5lua_H5Pget_userblock},
   {"H5Pset_sizes", h5lua_H5Pset_sizes},
@@ -1481,16 +1545,14 @@ static luaL_Reg H5P_funcs[] = {
   {"H5Pset_sieve_buf_size", h5lua_H5Pset_sieve_buf_size},
   {"H5Pset_small_data_block_size", h5lua_H5Pset_small_data_block_size},
   {"H5Pget_small_data_block_size", h5lua_H5Pget_small_data_block_size},
+  {"H5Pset_elink_file_cache_size", h5lua_H5Pset_elink_file_cache_size},
+  {"H5Pset_file_image", h5lua_H5Pset_file_image},
   {"H5Pset_chunk", h5lua_H5Pset_chunk},
   {"H5Pget_chunk", h5lua_H5Pget_chunk},
   {"H5Pget_external_count", h5lua_H5Pget_external_count},
-  {"H5Pget_nfilters", h5lua_H5Pget_nfilters},
-  {"H5Pall_filters_avail", h5lua_H5Pall_filters_avail},
-  {"H5Pset_deflate", h5lua_H5Pset_deflate},
   {"H5Pset_szip", h5lua_H5Pset_szip},
   {"H5Pset_shuffle", h5lua_H5Pset_shuffle},
   {"H5Pset_nbit", h5lua_H5Pset_nbit},
-  {"H5Pset_fletcher32", h5lua_H5Pset_fletcher32},
   {"H5Pset_fill_value", h5lua_H5Pset_fill_value},
   {"H5Pget_fill_value", h5lua_H5Pget_fill_value},
   {"H5Pset_buffer", h5lua_H5Pset_buffer},
@@ -1507,6 +1569,8 @@ static luaL_Reg H5P_funcs[] = {
   {"H5Pset_elink_fapl", h5lua_H5Pset_elink_fapl},
   {"H5Pset_elink_acc_flags", h5lua_H5Pset_elink_acc_flags},
   {"H5Pset_copy_object", h5lua_H5Pset_copy_object},
+  {"H5Padd_merge_committed_dtype_path", h5lua_H5Padd_merge_committed_dtype_path},
+  {"H5Pfree_merge_committed_dtype_paths", h5lua_H5Pfree_merge_committed_dtype_paths},
   {NULL,NULL}};
 
 static int h5lua_H5Rcreate(lua_State *L)

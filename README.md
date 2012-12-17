@@ -41,12 +41,26 @@ it flexible interaction with HDF5.
 Create a file called Makefile.in which contains macros like these:
 
     LUA_I = -I/path/to/lua-5.2.1/include
-    LUA_A = /path/to/lua-5.2.1/lib/liblua.a
+    LUA_A = -L/path/to/lua-5.2.1/lib -llua
 
-    HDF5_I = -I/Library/Science/hdf5/include
-    HDF5_L = -L/Library/Science/hdf5/lib -lz -lhdf5
+    HDF5_I = -I/path/to/hdf5/include
+    HDF5_L = -L/path/to/hdf5/lib -lz -lhdf5
 
 Then type `make`.
+
+
+# Compatibility and conventions
+
+H5Lua contains a Python script to generate low-level wrapper code which has been
+tested for HDF5 library versions between 1.8.3 and 1.8.10. The generated Lua
+code is tested for Lua 5.2.1, although small adjustments may be made to support
+Lua 5.0 and 5.1.
+
+An example program is provided which embeds the Lua HDF5 interface. It loads the
+H5Lua module into the `package.loaded.h5lua` table, which can then be accessed
+within Lua by typing `local h5lua = require 'h5lua'`. The module can be given
+global visibility to Lua scripts by passing calling `luaL_requiref(L, "h5lua",
+luaopen_h5lua, 1);` with 1 instead of 0 as the last argument.
 
 
 # License
