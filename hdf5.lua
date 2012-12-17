@@ -25,7 +25,13 @@ local function inherit_from(base, derived)
    for k,v in pairs(base) do new[k] = v end
    return new
 end
-
+local function class(object)
+   if type(object) == 'table' then
+      return object._type
+   else
+      return nil
+   end
+end
 
 --------------------------------------------------------------------------------
 -- Base classes for meta-table and methods wrapping hid_t objects
@@ -198,16 +204,68 @@ function DataSetClass:write(buf)
       error("dataspace selection is too large for buffer")
    end
    H5.H5Dwrite(self._hid, typ, spc, spc, hp0, buf)
+   H5.H5Sclose(spc)
+   H5.H5Tclose(typ)
 end
 
 function DataSetClass:read()
+   -----------------------------------------------------------------------------
+   -- Read all internal data into an un-typed data buffer. Always works.
+   -----------------------------------------------------------------------------
    local spc = H5.H5Dget_space(self._hid)
    local typ = H5.H5Dget_type(self._hid)
    local siz = H5.H5Tget_size(typ)
    local bytes = H5.H5Sget_select_npoints(spc) * siz
    local buf = buffer.new_buffer(bytes)
    H5.H5Dread(self._hid, typ, spc, spc, hp0, buf)
+   H5.H5Sclose(spc)
+   H5.H5Tclose(typ)
    return buf
+end
+
+function DataSetClass:value()
+   -----------------------------------------------------------------------------
+   -- Read internal data into an object whose Lua type is inferred from the HDF5
+   -- type. Might throw an error if it can't find an appropriate Lua type.
+   -----------------------------------------------------------------------------
+   local space = self:get_space()
+   local start = { }
+   local size = space:get_extent()
+   local tid1 = H5.H5Dget_type(self._hid)
+   local tcls = H5.H5Tget_class(tid1)
+
+   for i,v in ipairs(size) do start[i] = 0 end
+   local ret
+   if false then
+      ret = nil -- just to align text
+   elseif tcls == H5.H5T_STRING then
+      ret = tostring(self:read())
+   elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_CHAR) then
+      ret = buffer.view(self:read(), 'char', start, size)
+   elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_INT) then
+      ret = buffer.view(self:read(), 'int', start, size)
+   elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_FLOAT) then
+      ret = buffer.view(self:read(), 'float', start, size)
+   elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_DOUBLE) then
+      ret = buffer.view(self:read(), 'double', start, size)
+   else
+      print("could not infer a Lua type from the data set")
+   end
+
+   H5.H5Tclose(tid1)
+   return ret
+end
+function DataSetClass:get_space()
+   return hdf5.DataSpace(self)
+end
+
+function DataSetClass:get_type()
+   -----------------------------------------------------------------------------
+   -- Return a DataType class representing the DataSet's HDF5 type.
+   -----------------------------------------------------------------------------
+   local typ = H5.H5Dget_type(self._hid)
+   local ret = hdf5.DataType(typ) -- a copy of typ is made
+   H5.H5Tclose(typ)
 end
 
 local DataSetMeta = inherit_from(BaseMeta)
@@ -224,6 +282,12 @@ end
 -- HDF5 DataType class methods
 --------------------------------------------------------------------------------
 local DataTypeClass = inherit_from(BaseClass)
+function DataTypeClass:get_size()
+   return H5.H5Tget_size(self._hid)
+end
+function DataTypeClass:set_size(size)
+   return H5.H5Tset_size(self._hid, size)
+end
 
 local DataTypeMeta = inherit_from(BaseMeta)
 function DataTypeMeta:__tostring()
@@ -239,25 +303,6 @@ end
 -- HDF5 DataSpace class methods
 --------------------------------------------------------------------------------
 local DataSpaceClass = inherit_from(BaseClass)
-function DataSpaceClass:set_extent(extent)
-   if self._hid == 0 then
-      error("DataSpaceClass:set_extent cannot operate on closed data space")
-   end
-   local current_size = H5.new_hsize_t_arr(extent)
-   local maximum_size = H5.new_hsize_t_arr(extent)
-   H5.H5Sset_extent_simple(self._hid, #extent, current_size, maximum_size)
-end
-function DataSpaceClass:select_hyperslab(start, size, stride, block)
-   if self._hid == 0 then
-      error("DataSpaceClass:set_hyperslab cannot operate on closed data space")
-   end
-   local hstart = H5.new_hsize_t_arr(start)
-   local hsize = H5.new_hsize_t_arr(size)
-   local hstride = H5.new_hsize_t_arr(stride)
-   local hblock = H5.new_hsize_t_arr(block)
-   H5.H5Sselect_hyperslab(self._hid, H5.H5S_SELECT_SET, hstart, hsize, hstride,
-			  hblock)
-end
 function DataSpaceClass:get_extent(type)
    if self._hid == 0 then
       error("DataSpaceClass:get_extent cannot operate on closed data space")
@@ -277,6 +322,25 @@ function DataSpaceClass:get_extent(type)
       msize[i] = maximum_size[i-1]
    end
    return ({current=csize, maximum=msize})[type] or csize
+end
+function DataSpaceClass:set_extent(extent)
+   if self._hid == 0 then
+      error("DataSpaceClass:set_extent cannot operate on closed data space")
+   end
+   local current_size = H5.new_hsize_t_arr(extent)
+   local maximum_size = H5.new_hsize_t_arr(extent)
+   H5.H5Sset_extent_simple(self._hid, #extent, current_size, maximum_size)
+end
+function DataSpaceClass:select_hyperslab(start, size, stride, block)
+   if self._hid == 0 then
+      error("DataSpaceClass:select_hyperslab cannot operate on closed data space")
+   end
+   local hstart = H5.new_hsize_t_arr(start)
+   local hsize = H5.new_hsize_t_arr(size)
+   local hstride = H5.new_hsize_t_arr(stride)
+   local hblock = H5.new_hsize_t_arr(block)
+   H5.H5Sselect_hyperslab(self._hid, H5.H5S_SELECT_SET, hstart, hsize, hstride,
+			  hblock)
 end
 local DataSpaceMeta = inherit_from(BaseMeta)
 function DataSpaceMeta:__tostring()
@@ -384,7 +448,6 @@ function hdf5.DataType(typeid)
    else
       new._hid = H5.H5Tcopy(typeid)
    end
-
    setmetatable(new, DataTypeMeta)
    return new
 end
@@ -392,14 +455,25 @@ end
 
 --------------------------------------------------------------------------------
 -- HDF5 DataSpace constructor
+--
+-- If `arg` is a string, then it must be either 'simple' or 'scalar' and a new
+-- data space is created and returned. If `arg` is a data set then its data
+-- space is extracted and returned.
 --------------------------------------------------------------------------------
-function hdf5.DataSpace(space_type)
+function hdf5.DataSpace(arg)
    local new = { _type='data space',
 		 _hid=0,
 		 _close=H5.H5Sclose }
    inherit_from(DataSpaceClass, new)
-   local t = { simple=H5.H5S_SIMPLE, scalar=H5.H5S_SCALAR }
-   new._hid = H5.H5Screate(t[space_type] or H5.H5S_SIMPLE)
+   local arg = arg or 'simple'
+   if type(arg) == 'string' then
+      local t = { simple=H5.H5S_SIMPLE, scalar=H5.H5S_SCALAR }
+      new._hid = H5.H5Screate(t[arg])
+   elseif class(arg) == 'data set' then
+      new._hid = H5.H5Dget_space(arg._hid)
+   else
+      error("DataSpace constructor argument not recognized")
+   end
    setmetatable(new, DataSpaceMeta)
    return new
 end
@@ -445,13 +519,19 @@ local function test4()
    assert(size[1] == 10)
    assert(size[2] == 12)
    assert(size[3] == 14)
+
+   local dtype = hdf5.DataType('double')
+   dtype:set_size(128)
+   assert(dtype:get_size() == 128)
 end
 
 local function test5() -- depends on test3 being run first
    local file = hdf5.File("outfile.h5", "r")
    local dset = hdf5.DataSet(file["thegroup3"], "message")
+   local fspc = hdf5.DataSpace(dset)
    local buf = dset:read()
    assert(tostring(buf) == "the message content")
+   assert(type(file["thegroup3"]["message"]:value()) == 'string')
    dset:close()
    file:close()
 end
@@ -465,12 +545,18 @@ local function test6()
    local dset = hdf5.DataSet(file, "data1d", fspc, type)
    local buf = buffer.new_buffer(4*4*8*8)
    dset:write(buf)
+
    local array = buffer.view(buf, 'double', {0,0,0}, {2,2,2}, {2,2,2})
    file["data3d"] = array
    file:close()
 
    local file = hdf5.File("outfile.h5", "r")
    assert(#file["data3d"]:read() == 64)
+   assert(file["data3d"]:value():dtype() == 'double')
+   local start, size = file["data3d"]:value():selection()
+   assert(size[1] == 2)
+   assert(size[2] == 2)
+   assert(size[3] == 2)
    file:close()
 end
 

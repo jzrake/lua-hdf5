@@ -94,6 +94,10 @@ local data = buffer.new_buffer(size)
 H5.H5Dread(dset, strn, fspc, fspc, def, data)
 assert(tostring(data) == "the string content")
 
+local t2 = H5.H5Tget_native_type(strn, H5.H5T_DIR_DEFAULT)
+H5.H5Tset_size(t2, 1)
+assert(H5.H5Tequal(H5.H5T_C_S1, t2))
+
 H5.H5Sclose(fspc)
 H5.H5Tclose(strn)
 H5.H5Dclose(dset)
