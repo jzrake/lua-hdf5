@@ -1,6 +1,8 @@
 
 import re
 
+verbose = False
+
 # Read the HDF5 include directory from the Makefile.in
 hdf5_inc = dict([tuple(p) for p in
                  ["".join([c for c in x if c not in [" ", "\n"]]).split('=')
@@ -164,6 +166,66 @@ def header_functions(prefix, outfile=None, byhand=[], extras=[]):
             prefix, ',\n  '.join(["""{"%s", h5lua_%s}""" % (n, n)
                                 for n in (passed + byhand)])))
 
+def header_data(prefix, outfile=None, regtype="number", linestart="define"):
+    f = open(hdf5_inc + ("/H5%spublic.h" % prefix))
+    for line in f:
+        if linestart == "define":
+            target = re.compile(r"#define (H5%s_\w+)\s*" % prefix)
+        else:
+            target = re.compile(r"\s*(H5%s_\w+)\s*" % prefix)
+        m = target.match(line)
+        if m:
+            s = m.group(1)
+            if "MPI" not in s and s != "H5_DLL" and s == s.upper():
+                if regtype == "number":
+                    outfile.write("  REG_NUMBER(%s);\n" % s)
+                elif regtype == "hid":
+                    outfile.write("  REG_HID(%s);\n" % s)
+
+byhand = {
+    "L": ["H5Literate"]
+}
+
+# For collecting functions from header files:
+# ----------------------------------------------------------
+wrap = open("h5funcs.c", "w")
+for s in "ADEFGILOPRSTZ":
+    header_functions(s, outfile=wrap, byhand=byhand.get(s, []))
+
+
+print "%d functions wrapped successfully" % len(FunctionPrototype.passed)
+if verbose: print '\t'+'\n\t'.join(FunctionPrototype.passed)
+print "%d functions not wrapped successfully" % len(FunctionPrototype.failed)
+if verbose: print '\t'+'\n\t'.join(FunctionPrototype.failed)
+
+
+# For collecting constants from header files:
+# ----------------------------------------------------------
+wrap.write("static void register_constants(lua_State *L)\n{\n")
+
+wrap.write("#define REG_NUMBER(s) lua_pushnumber(L, s); lua_setfield(L, -2, #s)\n")
+wrap.write("#define REG_HID(s) lh5_push_hid_t(L, s); lua_setfield(L, -2, #s)\n")
+
+wrap.write("  REG_HID(H5P_DEFAULT);\n")
+header_data("", wrap, regtype="number", linestart="space")
+header_data("F", wrap, regtype="number", linestart="define")
+header_data("S", wrap, regtype="number", linestart="space")
+header_data("T", wrap, regtype="hid", linestart="define")
+header_data("P", wrap, regtype="hid", linestart="define")
+header_data("O", wrap, regtype="hid", linestart="define")
+header_data("O", wrap, regtype="number", linestart="space")
+header_data("L", wrap, regtype="number", linestart="space")
+
+wrap.write("#undef REG_NUMBER\n\n")
+wrap.write("#undef REG_HID\n")
+wrap.write("}\n")
+
+
+
+
+
+
+"""
 def H5F():
     f = open(hdf5_inc + "/H5Fpublic.h")
     for line in f:
@@ -227,30 +289,5 @@ def H5():
         if m:
             s = m.group(1)
             print "  REG_NUMBER(%s);" % s
+"""
 
-byhand = {
-    "L": ["H5Literate"]
-}
-
-# For collecting functions from header files:
-# ----------------------------------------------------------
-wrap = open("h5funcs.c", "w")
-for s in "ADEFGILOPRSTZ":
-    header_functions(s, outfile=wrap, byhand=byhand.get(s, []))
-
-
-print "%d functions wrapped successfully" % len(FunctionPrototype.passed)
-#print '\t'+'\n\t'.join(FunctionPrototype.passed)
-print "%d functions not wrapped successfully" % len(FunctionPrototype.failed)
-#print '\t'+'\n\t'.join(FunctionPrototype.failed)
-
-
-# For collecting constants from header files:
-# ----------------------------------------------------------
-#H5F()
-#H5S()
-#H5P()
-#H5T()
-#H5O()
-#H5L()
-#H5()
