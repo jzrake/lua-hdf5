@@ -33,6 +33,7 @@ local function class(object)
    end
 end
 
+
 --------------------------------------------------------------------------------
 -- Base classes for meta-table and methods wrapping hid_t objects
 --------------------------------------------------------------------------------
@@ -94,6 +95,7 @@ end
 function IndexableClass:require_group(name)
    return hdf5.Group(self, name)
 end
+
 
 --------------------------------------------------------------------------------
 -- IndexableMeta methods
