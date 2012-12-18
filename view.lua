@@ -2,16 +2,34 @@
 local buffer = require 'buffer'
 
 --------------------------------------------------------------------------------
--- Better to use string names to identify C data types in Lua. This code wraps
--- the C functions and converts the string to corresponding enum.
+-- It's better to use string names to identify C data types in Lua. This code
+-- wraps the C functions and converts the string to corresponding enum.
 --------------------------------------------------------------------------------
-local sizeof = buffer.sizeof
-local get_typed = buffer.get_typed
-local set_typed = buffer.set_typed
 
-function buffer.sizeof(T) return sizeof(buffer[T]) end
-function buffer.get_typed(buf, T, n) return get_typed(buf, buffer[T], n) end
-function buffer.set_typed(buf, T, n, v) set_typed(buf, buffer[T], n, v) end
+function buffer.sizeof(T)
+   return buffer.isizeof(buffer[T])
+end
+function buffer.get_typed(buf, T, n)
+   return buffer.get_ityped(buf, buffer[T], n)
+end
+function buffer.set_typed(buf, T, n, v)
+   buffer.set_ityped(buf, buffer[T], n, v)
+end
+
+
+function buffer.array(size, dtype)
+   local size = type(size) == 'table' and size or {size}
+   local start = { }
+   local rank = #size
+   local dtype = dtype or 'double'
+   local nelem = 1
+   for i=1,rank do
+      nelem = nelem * size[i]
+      start[i] = 0
+   end
+   local buf = buffer.new_buffer(nelem * buffer.sizeof(dtype))
+   return buffer.view(buf, dtype, start, size)
+end
 
 
 function buffer.view(buf, dtype, start, size, stride)
@@ -50,7 +68,7 @@ function buffer.view(buf, dtype, start, size, stride)
    end
 
    -- skip is the conventional C-ordering distance between elements along the
-   -- i-th axis. It is in view indices, not buffer indices.
+   -- i-th axis. Skip sizes are in units of the data element size.
    local skip = {[rank]=1}
    for i=rank-1,1,-1 do skip[i] = skip[i+1] * size[i+1] end
 
@@ -97,7 +115,7 @@ function buffer.view(buf, dtype, start, size, stride)
       return buffer.set_typed(self._buf, self._dtype_string, n, value)
    end
    function mt:__tostring()
-      return string.format("<buffer.view: %s>", self._dtype_string)
+      return string.format("<buffer.array: %s>", self._dtype_string)
    end
    function mt:__len(ind) return self._elem end
    setmetatable(new, mt)
