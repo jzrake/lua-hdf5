@@ -53,7 +53,7 @@ static int buffer_new_buffer(lua_State *L)
   return 1;
 }
 
-static int buffer_sizeof(lua_State *L)
+static int buffer_isizeof(lua_State *L)
 {
   unsigned int T = luaL_checkunsigned(L, 1);
   size_t s = 0;
@@ -69,7 +69,7 @@ static int buffer_sizeof(lua_State *L)
   return 1;
 }
 
-static int buffer_get_typed(lua_State *L)
+static int buffer_get_ityped(lua_State *L)
 {
   const char *buf = luaL_checkudata(L, 1, "buffer");
   unsigned int T = luaL_checkunsigned(L, 2); // type
@@ -96,7 +96,7 @@ static int buffer_get_typed(lua_State *L)
 
   return 1;
 }
-static int buffer_set_typed(lua_State *L)
+static int buffer_set_ityped(lua_State *L)
 {
   const char *buf = luaL_checkudata(L, 1, "buffer");
   unsigned int T = luaL_checkunsigned(L, 2); // type
@@ -170,9 +170,9 @@ int luaopen_buffer(lua_State *L)
 {
   luaL_Reg buffer_types[] = {
     {"new_buffer", buffer_new_buffer},
-    {"sizeof", buffer_sizeof},
-    {"get_typed", buffer_get_typed},
-    {"set_typed", buffer_set_typed},
+    {"isizeof", buffer_isizeof},
+    {"get_ityped", buffer_get_ityped},
+    {"set_ityped", buffer_set_ityped},
     {NULL, NULL}};
 
   luaL_Reg buffer_meta[] = {
