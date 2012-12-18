@@ -7,7 +7,7 @@ verbose = False
 hdf5_inc = dict([tuple(p) for p in
                  ["".join([c for c in x if c not in [" ", "\n"]]).split('=')
                   for x in [d for d in open("Makefile.in").readlines() if
-                            d.strip()]]])['HDF5_I'].replace('-I', '')
+                            d.strip()]]])['HDF_HOME'] + "/include"
 
 # Function prototypes not to wrap
 dont_wrap = ["H5Tenum_nameof",
