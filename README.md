@@ -9,12 +9,17 @@ it flexible interaction with HDF5.
 
 ## High-level interface
     local hdf5 = require 'hdf5'
+    local buffer = require 'buffer'
+
+    local buf = buffer.new_buffer(4*4*8 * buffer.sizeof('double'))
+    local my_data = buffer.view(buf, 'double', {0,0,0}, {4,4,8})
     local h5f = hdf5.File("outfile.h5", "w")
-    local h5g = hdf5.Group(h5f, "thegroup")
-    local h5h = hdf5.Group(h5g, "subgroup")
-    local h5s = hdf5.DataSpace()
-    h5s:set_extent{128,128,256}
-    ...
+    h5f["dataset"] = my_data
+
+    local group1 = h5f:require_group("group1")
+    group1["message"] = "here is the message"
+
+    h5f:close()
 
 
 ## Low-level bindings
@@ -38,20 +43,18 @@ it flexible interaction with HDF5.
 
 # Build instructions
 
+
 Make sure you have the [HDF5
 sources](http://www.hdfgroup.org/HDF5/release/obtain5.html) installed.
 
 
 Optionally, you may install local Lua sources by typing `make lua`.
 
+
 Create a file called Makefile.in which contains macros like these:
 
-    LUA_I = -I/path/to/lua-5.2.1/include
-    LUA_A = -L/path/to/lua-5.2.1/lib -llua
-
-    HDF5_I = -I/path/to/hdf5/include
-    HDF5_L = -L/path/to/hdf5/lib -lz -lhdf5
-
+    LUA_HOME = /path/to/lua-5.2.1
+    HDF_HOME = /path/to/hdf5-1.8.10
 
 Additional compile flags are optional:
 
@@ -59,8 +62,10 @@ Additional compile flags are optional:
     CFLAGS = -Wall -O2
     LVER = lua-5.2.1 # can be lua-5.1 or other
 
+
 Run `python parse.py` in order to generate wrapper code for your own HDF5
 library version.
+
 
 Run `make`.
 

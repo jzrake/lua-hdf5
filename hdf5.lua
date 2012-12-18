@@ -91,7 +91,9 @@ function IndexableClass:keys()
    H5.H5Literate(self._hid, H5.H5_INDEX_NAME, H5.H5_ITER_NATIVE, idx, f)
    return link_names
 end
-
+function IndexableClass:require_group(name)
+   return hdf5.Group(self, name)
+end
 
 --------------------------------------------------------------------------------
 -- IndexableMeta methods
@@ -560,6 +562,17 @@ local function test6()
    file:close()
 end
 
+local function test7()
+   local buf = buffer.new_buffer(4*4*8 * buffer.sizeof('double'))
+   local my_data = buffer.view(buf, 'double', {0,0,0}, {4,4,8})
+   local h5f = hdf5.File("outfile.h5", "w")
+   h5f["dataset"] = my_data
+   local group1 = h5f:require_group("group1")
+   group1["message"] = "here is the message"
+   h5f:close()
+end
+
+
 
 if ... then -- if __name__ == "__main__"
    return hdf5
@@ -570,5 +583,6 @@ else
    test4()
    test5()
    test6()
+   test7()
    print(debug.getinfo(1).source, ": All tests passed")
 end
