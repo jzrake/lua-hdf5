@@ -170,7 +170,6 @@ int luaopen_h5lua(lua_State *L)
     {"new_hid_t", h5lua_new_hid_t},
     {"new_herr_t", h5lua_new_herr_t},
     {"new_H5O_info_t", h5lua_new_H5O_info_t},
-    //    {"new_double_arr", h5lua_new_double_arr},
     {"new_hsize_t_arr", h5lua_new_hsize_t_arr},
     {NULL, NULL}};
 
@@ -189,16 +188,6 @@ int luaopen_h5lua(lua_State *L)
   luaL_newmetatable(L, "HDF5::hsize_t_arr");
   luaL_setfuncs(L, hsize_t_arr_meta, 0);
   lua_pop(L, 1);
-
-  /*
-  luaL_Reg double_arr_meta[] = {
-    {"__index", h5lua_double_arr__index},
-    {"__newindex", h5lua_double_arr__newindex},
-    {NULL, NULL}};
-  luaL_newmetatable(L, "HDF5::double_arr");
-  luaL_setfuncs(L, double_arr_meta, 0);
-  lua_pop(L, 1);
-  */
 
   luaL_newmetatable(L, "HDF5::hid_t");
   lua_pop(L, 1);
@@ -224,6 +213,7 @@ int luaopen_h5lua(lua_State *L)
   luaL_setfuncs(L, H5S_funcs, 0);
   luaL_setfuncs(L, H5T_funcs, 0);
   luaL_setfuncs(L, H5Z_funcs, 0);
+  luaL_setfuncs(L, H5P_MPI_funcs, 0);
   register_constants(L);
 
   return 1;

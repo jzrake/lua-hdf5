@@ -1,7 +1,8 @@
 
 import re
 
-verbose = False
+verbose = False # print more stuff
+wrap_mpi = True # Include MPI constants and functions
 
 # Read the HDF5 include directory from the Makefile.in
 hdf5_inc = dict([tuple(p) for p in
@@ -99,7 +100,11 @@ class FunctionPrototype(object):
                 get_lua_args.append(
                     "hsize_t %s = luaL_checkunsigned(L, %d);" % (
                         name, n + 1))
-            elif t in ["H5S_class_t", "H5S_seloper_t", "H5R_type_t"]:
+            elif t in ["H5S_class_t",
+                       "H5S_seloper_t",
+                       "H5R_type_t",
+                       "H5FD_mpio_xfer_t",
+                       "H5FD_mpio_chunk_opt_t"]:
                 get_lua_args.append(
                     "int %s = luaL_checkinteger(L, %d);" % (
                         name, n + 1))
@@ -149,8 +154,11 @@ def stripcomments(text):
     return re.sub(pattern, replacer, text)
 
 
-def header_functions(prefix, outfile=None, byhand=[], extras=[]):
-    f = open(hdf5_inc + "/H5%spublic.h" % prefix)
+def header_functions(prefix, outfile=None, byhand=[], extras=[], header=None,
+                     luaL_Reg=None):
+    if not header: header = "H5%spublic.h" % prefix
+    f = open(hdf5_inc + '/' + header)
+    if not luaL_Reg: luaL_Reg = "H5%s_funcs[]" % prefix
     passed = [ ]
     failed = [ ]
     raw = stripcomments(f.read())
@@ -168,25 +176,31 @@ def header_functions(prefix, outfile=None, byhand=[], extras=[]):
         except AttributeError as e:
             pass
     outfile.write(
-        """\nstatic luaL_Reg H5%s_funcs[] = {\n  %s,\n  {NULL,NULL}};\n""" % (
-            prefix, ',\n  '.join(["""{"%s", h5lua_%s}""" % (n, n)
-                                for n in (passed + byhand)])))
+        """\nstatic luaL_Reg %s = {\n  %s,\n  {NULL,NULL}};\n""" % (
+            luaL_Reg, ',\n  '.join(["""{"%s", h5lua_%s}""" % (n, n)
+                                    for n in (passed + byhand)])))
 
-def header_data(prefix, outfile=None, regtype="number", linestart="define"):
-    f = open(hdf5_inc + ("/H5%spublic.h" % prefix))
+
+def header_data(pref1, outfile=None, regtype="number", linestart="define",
+                pref2=None, header=None, mpi=False):
+    if not header: header = "H5%spublic.h" % pref1
+    f = open(hdf5_inc + '/' + header)
+    if not pref2: pref2 = pref1
     for line in f:
         if linestart == "define":
-            target = re.compile(r"#define (H5%s_\w+)\s*" % prefix)
+            target = re.compile(r"#define (H5%s_\w+)\s*" % pref2)
         else:
-            target = re.compile(r"\s*(H5%s_\w+)\s*" % prefix)
+            target = re.compile(r"\s*(H5%s_\w+)\s*" % pref2)
         m = target.match(line)
         if m:
             s = m.group(1)
-            if "MPI" not in s and s != "H5_DLL" and s == s.upper():
-                if regtype == "number":
-                    outfile.write("  REG_NUMBER(%s);\n" % s)
-                elif regtype == "hid":
-                    outfile.write("  REG_HID(%s);\n" % s)
+
+            if s != "H5_DLL" and s == s.upper():
+                if "MPI" not in s or mpi:
+                    if regtype == "number":
+                        outfile.write("  REG_NUMBER(%s);\n" % s)
+                    elif regtype == "hid":
+                        outfile.write("  REG_HID(%s);\n" % s)
 
 byhand = {
     "L": ["H5Literate"]
@@ -194,10 +208,16 @@ byhand = {
 
 # For collecting functions from header files:
 # ----------------------------------------------------------
+print "parsing HDF5:", hdf5_inc
+
 wrap = open("h5funcs.c", "w")
 for s in "ADEFGILOPRSTZ":
     header_functions(s, outfile=wrap, byhand=byhand.get(s, []))
 
+if wrap_mpi:
+    header_functions("P", outfile=wrap, header="H5FDmpio.h", luaL_Reg="H5P_MPI_funcs[]")
+else:
+    wrap.write("static luaL_Reg H5P_MPI_funcs[] = {{NULL,NULL}};")
 
 print "%d functions wrapped successfully" % len(FunctionPrototype.passed)
 if verbose: print '\t'+'\n\t'.join(FunctionPrototype.passed)
@@ -208,11 +228,10 @@ if verbose: print '\t'+'\n\t'.join(FunctionPrototype.failed)
 # For collecting constants from header files:
 # ----------------------------------------------------------
 wrap.write("static void register_constants(lua_State *L)\n{\n")
-
 wrap.write("#define REG_NUMBER(s) lua_pushnumber(L, s); lua_setfield(L, -2, #s)\n")
 wrap.write("#define REG_HID(s) lh5_push_hid_t(L, s); lua_setfield(L, -2, #s)\n")
-
 wrap.write("  REG_HID(H5P_DEFAULT);\n")
+
 header_data("", wrap, regtype="number", linestart="space")
 header_data("F", wrap, regtype="number", linestart="define")
 header_data("S", wrap, regtype="number", linestart="space")
@@ -222,6 +241,11 @@ header_data("P", wrap, regtype="hid", linestart="define")
 header_data("O", wrap, regtype="hid", linestart="define")
 header_data("O", wrap, regtype="number", linestart="space")
 header_data("L", wrap, regtype="number", linestart="space")
+
+if wrap_mpi:
+    header_data("P", wrap, regtype="number", linestart="space", pref2="D", mpi=True)
+    header_data("FD", wrap, regtype="number", linestart="space",
+                header="H5FDmpi.h", mpi=True)
 
 wrap.write("#undef REG_NUMBER\n\n")
 wrap.write("#undef REG_HID\n")
