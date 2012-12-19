@@ -9,6 +9,7 @@ local hdf5 = { } -- module table
 
 local H5 = require 'h5lua'
 local buffer = require 'buffer'
+local array = require 'array'
 local hp0 = H5.H5P_DEFAULT
 
 
@@ -141,7 +142,7 @@ function IndexableMeta:__newindex(key, value)
    elseif value.buffer and value.dtype and value.selection then
       --------------------------------------------------------------------------
       -- If the buffer, dtype, and selection methods are given, assume their
-      -- behavior is like that of buffer.view, and we can write to a buffer
+      -- behavior is like that of array.view, and we can write to a buffer
       -- automatically.
       --------------------------------------------------------------------------
       local start, size, stride, block = value:selection()
@@ -245,13 +246,13 @@ function DataSetClass:value()
    elseif tcls == H5.H5T_STRING then
       ret = tostring(self:read())
    elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_CHAR) then
-      ret = buffer.view(self:read(), 'char', start, size)
+      ret = array.view(self:read(), 'char', start, size)
    elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_INT) then
-      ret = buffer.view(self:read(), 'int', start, size)
+      ret = array.view(self:read(), 'int', start, size)
    elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_FLOAT) then
-      ret = buffer.view(self:read(), 'float', start, size)
+      ret = array.view(self:read(), 'float', start, size)
    elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_DOUBLE) then
-      ret = buffer.view(self:read(), 'double', start, size)
+      ret = array.view(self:read(), 'double', start, size)
    else
       print("could not infer a Lua type from the data set")
    end
@@ -550,7 +551,7 @@ local function test6()
    local buf = buffer.new_buffer(4*4*8*8)
    dset:write(buf)
 
-   local array = buffer.view(buf, 'double', {0,0,0}, {2,2,2}, {2,2,2})
+   local array = array.view(buf, 'double', {0,0,0}, {2,2,2}, {2,2,2})
    file["data3d"] = array
    file:close()
 
@@ -565,8 +566,8 @@ local function test6()
 end
 
 local function test7()
-   local buf = buffer.new_buffer(4*4*8 * buffer.sizeof('double'))
-   local my_data = buffer.view(buf, 'double', {0,0,0}, {4,4,8})
+   local buf = buffer.new_buffer(4*4*8 * array.sizeof('double'))
+   local my_data = array.view(buf, 'double', {0,0,0}, {4,4,8})
    local h5f = hdf5.File("outfile.h5", "w")
    h5f["dataset"] = my_data
    local group1 = h5f:require_group("group1")

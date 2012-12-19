@@ -1,23 +1,24 @@
 
 local buffer = require 'buffer'
+local array = { }
 
 --------------------------------------------------------------------------------
 -- It's better to use string names to identify C data types in Lua. This code
 -- wraps the C functions and converts the string to corresponding enum.
 --------------------------------------------------------------------------------
 
-function buffer.sizeof(T)
-   return buffer.isizeof(buffer[T])
+function array.sizeof(T)
+   return buffer.sizeof(buffer[T])
 end
-function buffer.get_typed(buf, T, n)
-   return buffer.get_ityped(buf, buffer[T], n)
+function array.get_typed(buf, T, n)
+   return buffer.get_typed(buf, buffer[T], n)
 end
-function buffer.set_typed(buf, T, n, v)
-   buffer.set_ityped(buf, buffer[T], n, v)
+function array.set_typed(buf, T, n, v)
+   buffer.set_typed(buf, buffer[T], n, v)
 end
 
 
-function buffer.array(size, dtype)
+function array.array(size, dtype)
    local size = type(size) == 'table' and size or {size}
    local start = { }
    local rank = #size
@@ -27,13 +28,13 @@ function buffer.array(size, dtype)
       nelem = nelem * size[i]
       start[i] = 0
    end
-   local buf = buffer.new_buffer(nelem * buffer.sizeof(dtype))
-   return buffer.view(buf, dtype, start, size)
+   local buf = buffer.new_buffer(nelem * array.sizeof(dtype))
+   return array.view(buf, dtype, start, size)
 end
 
 
-function buffer.view(buf, dtype, start, size, stride)
-   local sz =  buffer.sizeof(dtype)
+function array.view(buf, dtype, start, size, stride)
+   local sz =  array.sizeof(dtype)
    local start = start or { 0 }
    local size = size or { #buf/sz }
    local stride = stride or { }
@@ -99,7 +100,7 @@ function buffer.view(buf, dtype, start, size, stride)
 	 end
 	 n = n + (ind[i] + self._start[i]) * self._stride[i] * self._skip[i]
       end
-      return buffer.get_typed(self._buf, self._dtype_string, n)
+      return array.get_typed(self._buf, self._dtype_string, n)
    end
 
    function mt:__newindex(ind, value)
@@ -112,12 +113,14 @@ function buffer.view(buf, dtype, start, size, stride)
 	 end
 	 n = n + (ind[i] + self._start[i]) * self._stride[i] * self._skip[i]
       end
-      return buffer.set_typed(self._buf, self._dtype_string, n, value)
+      return array.set_typed(self._buf, self._dtype_string, n, value)
    end
    function mt:__tostring()
-      return string.format("<buffer.array: %s>", self._dtype_string)
+      return string.format("<array: %s>", self._dtype_string)
    end
    function mt:__len(ind) return self._elem end
    setmetatable(new, mt)
    return new
 end
+
+return array
