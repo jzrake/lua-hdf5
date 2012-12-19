@@ -23,9 +23,8 @@ int main(int argc, char **argv)
   int n;
   lua_State *L = luaL_newstate();
   luaL_openlibs(L);
-  luaL_requiref(L, "h5lua", luaopen_h5lua, 0);
-  luaL_requiref(L, "buffer", luaopen_buffer, 0);
-
+  luaL_requiref(L, "h5lua", luaopen_h5lua, 0); lua_pop(L, 1);
+  luaL_requiref(L, "buffer", luaopen_buffer, 0); lua_pop(L, 1);
   luaopen_buffer_view(L);
 
 

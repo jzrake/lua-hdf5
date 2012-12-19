@@ -2,7 +2,7 @@
 import re
 
 verbose = False # print more stuff
-wrap_mpi = True # Include MPI constants and functions
+wrap_mpi = False # Include MPI constants and functions
 
 # Read the HDF5 include directory from the Makefile.in
 hdf5_inc = dict([tuple(p) for p in

@@ -68,8 +68,8 @@ main : main.o h5lua.o buffer.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LUA_I) $(LUA_A) $(HDF_L)
 
 clean :
-	$(RM) -f *.o main
+	$(RM) *.o main
 
 # Also remove local Lua sources
 realclean :
-	$(RM) -rf $(LVER)
+	$(RM) -r $(LVER)
