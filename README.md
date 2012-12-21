@@ -48,9 +48,6 @@ Make sure you have the [HDF5
 sources](http://www.hdfgroup.org/HDF5/release/obtain5.html) installed.
 
 
-Optionally, you may install local Lua sources by typing `make lua`.
-
-
 Create a file called Makefile.in which contains macros like these:
 
     LUA_HOME = /path/to/lua-5.2.1
@@ -61,6 +58,9 @@ Additional compile flags are optional:
     CC = gcc
     CFLAGS = -Wall -O2
     LVER = lua-5.2.1 # can be lua-5.1 or other
+
+
+Optionally, you may install local Lua sources by typing `make lua`.
 
 
 Run `python parse.py` in order to generate wrapper code for your own HDF5
