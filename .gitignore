@@ -1,3 +1,9 @@
 
 lua-5.1/
 lua-5.2.1/
+/h5funcs.c
+/buffer.o
+/lua-hdf5.o
+/main
+/main.o
+/Makefile.in
