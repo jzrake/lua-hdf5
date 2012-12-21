@@ -7,7 +7,7 @@
 local hdf5 = { } -- module table
 --------------------------------------------------------------------------------
 
-local H5 = require 'h5lua'
+local H5 = require 'HDF5'
 local buffer = require 'buffer'
 local array = require 'array'
 local hp0 = H5.H5P_DEFAULT

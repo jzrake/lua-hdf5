@@ -8,7 +8,7 @@ it flexible interaction with HDF5.
 # Example usage
 
 ## High-level interface
-    local hdf5 = require 'hdf5'
+    local hdf5 = require 'LuaHDF5'
     local buffer = require 'buffer'
 
     local buf = buffer.new_buffer(4*4*8 * buffer.sizeof('double'))
@@ -23,7 +23,7 @@ it flexible interaction with HDF5.
 
 
 ## Low-level bindings
-    local H5 = require 'h5lua'
+    local H5 = require 'HDF5'
     local buffer = require 'buffer'
 
     local def = H5.H5P_DEFAULT
@@ -77,16 +77,16 @@ Type `./main alltests.lua`.
 
 # Compatibility and conventions
 
-H5Lua contains a Python script to generate low-level wrapper code which has been
-tested for HDF5 library versions between 1.8.3 and 1.8.10. The generated Lua
-code is tested for Lua 5.2.1, although small adjustments may be made to support
-Lua 5.0 and 5.1.
+Lua HDF5 contains a Python script to generate low-level wrapper code which has
+been tested for HDF5 library versions between 1.8.3 and 1.8.10. The generated
+Lua code is tested for Lua 5.2.1, although small adjustments may be made to
+support Lua 5.0 and 5.1.
 
 An example program is provided which embeds the Lua HDF5 interface. It loads the
-H5Lua module into the `package.loaded.h5lua` table, which can then be accessed
-within Lua by typing `local h5lua = require 'h5lua'`. The module can be given
-global visibility to Lua scripts by passing calling `luaL_requiref(L, "h5lua",
-luaopen_h5lua, 1);` with 1 instead of 0 as the last argument.
+`HDF5` module into the `package.loaded.HDF5` table, which can then be accessed
+within Lua by typing `local H5 = require 'HDF5'`. The module can be given global
+visibility to Lua scripts by passing calling `luaL_requiref(L, "HDF5",
+luaopen_hdf5, 1);` with 1 instead of 0 as the last argument.
 
 
 # License

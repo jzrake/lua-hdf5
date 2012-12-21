@@ -5,8 +5,8 @@
 #include "lauxlib.h"
 
 
-int luaopen_h5lua(lua_State *L);
 int luaopen_buffer(lua_State *L);
+int luaopen_hdf5(lua_State *L);
 
 
 int main(int argc, char **argv)
@@ -14,8 +14,8 @@ int main(int argc, char **argv)
   int n;
   lua_State *L = luaL_newstate();
   luaL_openlibs(L);
-  luaL_requiref(L, "h5lua", luaopen_h5lua, 0); lua_pop(L, 1);
   luaL_requiref(L, "buffer", luaopen_buffer, 0); lua_pop(L, 1);
+  luaL_requiref(L, "HDF5", luaopen_hdf5, 0); lua_pop(L, 1);
 
 
   // Create the global `arg` table

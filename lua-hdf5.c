@@ -15,7 +15,7 @@ static void lh5_push_hid_t(lua_State *L, hid_t id)
   *((hid_t*) lua_newuserdata(L, sizeof(hid_t))) = id;
   luaL_setmetatable(L, "HDF5::hid_t");
 }
-static int h5lua_new_hid_t(lua_State *L)
+static int _new_hid_t(lua_State *L)
 {
   lh5_push_hid_t(L, 0);
   return 1;
@@ -29,7 +29,7 @@ static void lh5_push_herr_t(lua_State *L, herr_t id)
   *((herr_t*) lua_newuserdata(L, sizeof(herr_t))) = id;
   luaL_setmetatable(L, "HDF5::herr_t");
 }
-static int h5lua_new_herr_t(lua_State *L)
+static int _new_herr_t(lua_State *L)
 {
   lh5_push_herr_t(L, 0);
   return 1;
@@ -43,13 +43,13 @@ static void lh5_push_H5O_info_t(lua_State *L, H5O_info_t id)
   *((H5O_info_t*) lua_newuserdata(L, sizeof(H5O_info_t))) = id;
   luaL_setmetatable(L, "HDF5::H5O_info_t");
 }
-static int h5lua_new_H5O_info_t(lua_State *L)
+static int _new_H5O_info_t(lua_State *L)
 {
   H5O_info_t id;
   lh5_push_H5O_info_t(L, id);
   return 1;
 }
-static int h5lua_H5O_info_t__index(lua_State *L)
+static int _H5O_info_t__index(lua_State *L)
 {
   H5O_info_t *i = (H5O_info_t*) luaL_checkudata(L, 1, "HDF5::H5O_info_t");
   const char *key = luaL_checkstring(L, 2);
@@ -66,7 +66,7 @@ static int h5lua_H5O_info_t__index(lua_State *L)
   else { lua_pushnil(L); }
   return 1;
 }
-static int h5lua_H5O_info_t__newindex(lua_State *L)
+static int _H5O_info_t__newindex(lua_State *L)
 {
   luaL_checkudata(L, 1, "HDF5::H5O_info_t");
   luaL_error(L, "object does not support item assignment");
@@ -81,7 +81,7 @@ static void lh5_push_hsize_t_arr(lua_State *L, hsize_t *hs, unsigned int N)
   memcpy(lua_newuserdata(L, sizeof(hsize_t) * N), hs, sizeof(hsize_t) * N);
   luaL_setmetatable(L, "HDF5::hsize_t_arr");
 }
-static int h5lua_new_hsize_t_arr(lua_State *L)
+static int _new_hsize_t_arr(lua_State *L)
 {
   luaL_checktype(L, 1, LUA_TTABLE);
   int n = 0, N = lua_rawlen(L, 1);
@@ -98,7 +98,7 @@ static int h5lua_new_hsize_t_arr(lua_State *L)
   free(hs);
   return 1;
 }
-static int h5lua_hsize_t_arr__index(lua_State *L)
+static int _hsize_t_arr__index(lua_State *L)
 {
   hsize_t *lhs = (hsize_t*) luaL_checkudata(L, 1, "HDF5::hsize_t_arr");
   unsigned int n = luaL_checkunsigned(L, 2);
@@ -111,7 +111,7 @@ static int h5lua_hsize_t_arr__index(lua_State *L)
   }
   return 1;
 }
-static int h5lua_hsize_t_arr__newindex(lua_State *L)
+static int _hsize_t_arr__newindex(lua_State *L)
 {
   hsize_t *lhs = (hsize_t*) luaL_checkudata(L, 1, "HDF5::hsize_t_arr");
   unsigned int n = luaL_checkunsigned(L, 2);
@@ -145,7 +145,7 @@ static herr_t _H5Literate_cb(hid_t g_id, const char *name,
   lua_call(L, 1, 0);
   return 0;
 }
-int h5lua_H5Literate(lua_State *L)
+int _H5Literate(lua_State *L)
 {
   hid_t group_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
   H5_index_t index_type = luaL_checkinteger(L, 2);
@@ -164,26 +164,26 @@ int h5lua_H5Literate(lua_State *L)
 #include "h5funcs.c"
 
 
-int luaopen_h5lua(lua_State *L)
+int luaopen_hdf5(lua_State *L)
 {
-  luaL_Reg h5lua_types[] = {
-    {"new_hid_t", h5lua_new_hid_t},
-    {"new_herr_t", h5lua_new_herr_t},
-    {"new_H5O_info_t", h5lua_new_H5O_info_t},
-    {"new_hsize_t_arr", h5lua_new_hsize_t_arr},
+  luaL_Reg hdf5_types[] = {
+    {"new_hid_t", _new_hid_t},
+    {"new_herr_t", _new_herr_t},
+    {"new_H5O_info_t", _new_H5O_info_t},
+    {"new_hsize_t_arr", _new_hsize_t_arr},
     {NULL, NULL}};
 
   luaL_Reg H5O_info_t_meta[] = {
-    {"__index", h5lua_H5O_info_t__index},
-    {"__newindex", h5lua_H5O_info_t__newindex},
+    {"__index", _H5O_info_t__index},
+    {"__newindex", _H5O_info_t__newindex},
     {NULL, NULL}};
   luaL_newmetatable(L, "HDF5::H5O_info_t");
   luaL_setfuncs(L, H5O_info_t_meta, 0);
   lua_pop(L, 1);
 
   luaL_Reg hsize_t_arr_meta[] = {
-    {"__index", h5lua_hsize_t_arr__index},
-    {"__newindex", h5lua_hsize_t_arr__newindex},
+    {"__index", _hsize_t_arr__index},
+    {"__newindex", _hsize_t_arr__newindex},
     {NULL, NULL}};
   luaL_newmetatable(L, "HDF5::hsize_t_arr");
   luaL_setfuncs(L, hsize_t_arr_meta, 0);
@@ -199,7 +199,7 @@ int luaopen_h5lua(lua_State *L)
   // Module definition
   // ---------------------------------------------------------------------------
   lua_newtable(L);
-  luaL_setfuncs(L, h5lua_types, 0);
+  luaL_setfuncs(L, hdf5_types, 0);
   luaL_setfuncs(L, H5A_funcs, 0);
   luaL_setfuncs(L, H5D_funcs, 0);
   luaL_setfuncs(L, H5E_funcs, 0);

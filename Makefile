@@ -1,6 +1,6 @@
 
 # ------------------------------------------------------------------------------
-# H5Lua build instructions
+# Lua HDF5 build instructions
 # ------------------------------------------------------------------------------
 #
 # 1. Make sure you have the HDF5 sources installed.
@@ -59,7 +59,7 @@ $(LVER) :
 h5funcs.c :
 	python parse.py $(MAKEFILE_IN)
 
-h5lua.o : h5lua.c h5funcs.c
+lua-hdf5.o : lua-hdf5.c h5funcs.c
 	$(CC) $(CFLAGS) -c -o $@ $< $(LUA_I) $(HDF_I)
 
 buffer.o : buffer.c
@@ -68,7 +68,7 @@ buffer.o : buffer.c
 main.o : main.c
 	$(CC) $(CFLAGS) -c -o $@ $< $(LUA_I)
 
-main : main.o h5lua.o buffer.o
+main : main.o lua-hdf5.o buffer.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LUA_I) $(LUA_L) $(HDF_L)
 
 clean :

@@ -1,5 +1,5 @@
 
-local H5 = require 'h5lua'
+local H5 = require 'HDF5'
 local buffer = require 'buffer'
 
 local def = H5.H5P_DEFAULT

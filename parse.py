@@ -138,7 +138,7 @@ class FunctionPrototype(object):
                              self.func_name)
         func = (
             """
-static int h5lua_%(func_name)s(lua_State *L)
+static int _%(func_name)s(lua_State *L)
 {
   %(lua_args)s
   %(ret_type)s res = %(func_name)s(%(arg_list)s);
@@ -187,7 +187,7 @@ def header_functions(prefix, outfile=None, byhand=[], extras=[], header=None,
             pass
     outfile.write(
         """\nstatic luaL_Reg %s = {\n  %s,\n  {NULL,NULL}};\n""" % (
-            luaL_Reg, ',\n  '.join(["""{"%s", h5lua_%s}""" % (n, n)
+            luaL_Reg, ',\n  '.join(["""{"%s", _%s}""" % (n, n)
                                     for n in (passed + byhand)])))
 
 
