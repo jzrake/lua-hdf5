@@ -1,14 +1,24 @@
 
 import re
+import sys
 
+if len(sys.argv) > 1:
+    Makefile_in = sys.argv[1]
+else:
+    Makefile_in = "Makefile.in"
+
+print "using Makefile.in", Makefile_in
 verbose = False # print more stuff
-wrap_mpi = False # Include MPI constants and functions
 
-# Read the HDF5 include directory from the Makefile.in
-hdf5_inc = dict([tuple(p) for p in
-                 ["".join([c for c in x if c not in [" ", "\n"]]).split('=')
-                  for x in [d for d in open("Makefile.in").readlines() if
-                            d.strip()]]])['HDF_HOME'] + "/include"
+# Read the Makefile.in
+Makefile_in_dict = dict([tuple(p) for p in
+                         ["".join([c for c in x if c not in [" ", "\n"]]).split('=')
+                          for x in [d for d in open(Makefile_in).readlines() if
+                                    d.strip()]]])
+
+hdf5_inc = Makefile_in_dict.get('HDF_HOME', '/usr/local') + "/include"
+wrap_mpi = Makefile_in_dict.get('WRAP_MPI', False) # Include MPI constants and functions
+
 
 # Function prototypes not to wrap
 dont_wrap = ["H5Tenum_nameof",

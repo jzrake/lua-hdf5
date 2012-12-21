@@ -40,7 +40,7 @@ RM ?= rm
 LVER ?= lua-5.2.1
 
 LUA_I ?= -I$(LUA_HOME)/include
-LUA_A ?= -L$(LUA_HOME)/lib -llua
+LUA_L ?= -L$(LUA_HOME)/lib -llua
 HDF_I ?= -I$(HDF_HOME)/include
 HDF_L ?= -L$(HDF_HOME)/lib -lz -lhdf5
 
@@ -56,7 +56,10 @@ $(LVER) :
 		$(MAKE) install INSTALL_TOP=$(PWD)/$(LVER)
 	$(RM) $(LVER).tar.gz
 
-h5lua.o : h5lua.c
+h5funcs.c :
+	python parse.py $(MAKEFILE_IN)
+
+h5lua.o : h5lua.c h5funcs.c
 	$(CC) $(CFLAGS) -c -o $@ $< $(LUA_I) $(HDF_I)
 
 buffer.o : buffer.c
@@ -66,10 +69,10 @@ main.o : main.c
 	$(CC) $(CFLAGS) -c -o $@ $< $(LUA_I)
 
 main : main.o h5lua.o buffer.o
-	$(CC) $(CFLAGS) -o $@ $^ $(LUA_I) $(LUA_A) $(HDF_L)
+	$(CC) $(CFLAGS) -o $@ $^ $(LUA_I) $(LUA_L) $(HDF_L)
 
 clean :
-	$(RM) *.o main
+	$(RM) *.o main h5funcs.c
 
 # Also remove local Lua sources
 realclean : clean
