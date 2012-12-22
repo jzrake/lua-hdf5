@@ -58,6 +58,7 @@ Additional compile flags are optional:
     CC = gcc
     CFLAGS = -Wall -O2
     LVER = lua-5.2.1 # can be lua-5.1 or other
+    USE_MPIO = True # wrap HDF5 collectve IO routines
 
 
 Optionally, you may install local Lua sources by typing `make lua`.

@@ -7,7 +7,7 @@ if len(sys.argv) > 1:
 else:
     Makefile_in = "Makefile.in"
 
-print "using Makefile.in", Makefile_in
+print "[HDF5 Parser] using Makefile.in:", Makefile_in
 verbose = False # print more stuff
 
 # Read the Makefile.in
@@ -17,8 +17,9 @@ Makefile_in_dict = dict([tuple(p) for p in
                                     d.strip()]]])
 
 hdf5_inc = Makefile_in_dict.get('HDF_HOME', '/usr/local') + "/include"
-wrap_mpi = Makefile_in_dict.get('WRAP_MPI', False) # Include MPI constants and functions
-
+use_mpio = Makefile_in_dict.get('USE_MPIO', 'False') # Include MPI constants and functions
+use_mpio = eval(use_mpio)
+print "[HDF5 Parser] USE_MPIO:", use_mpio
 
 # Function prototypes not to wrap
 dont_wrap = ["H5Tenum_nameof",
@@ -218,20 +219,20 @@ byhand = {
 
 # For collecting functions from header files:
 # ----------------------------------------------------------
-print "parsing HDF5:", hdf5_inc
+print "[HDF5 Parser] parsing HDF5:", hdf5_inc
 
 wrap = open("h5funcs.c", "w")
 for s in "ADEFGILOPRSTZ":
     header_functions(s, outfile=wrap, byhand=byhand.get(s, []))
 
-if wrap_mpi:
+if use_mpio:
     header_functions("P", outfile=wrap, header="H5FDmpio.h", luaL_Reg="H5P_MPI_funcs[]")
 else:
     wrap.write("static luaL_Reg H5P_MPI_funcs[] = {{NULL,NULL}};")
 
-print "%d functions wrapped successfully" % len(FunctionPrototype.passed)
+print "[HDF5 Parser] %d functions wrapped successfully" % len(FunctionPrototype.passed)
 if verbose: print '\t'+'\n\t'.join(FunctionPrototype.passed)
-print "%d functions not wrapped successfully" % len(FunctionPrototype.failed)
+print "[HDF5 Parser] %d functions not wrapped successfully" % len(FunctionPrototype.failed)
 if verbose: print '\t'+'\n\t'.join(FunctionPrototype.failed)
 
 
@@ -252,7 +253,7 @@ header_data("O", wrap, regtype="hid", linestart="define")
 header_data("O", wrap, regtype="number", linestart="space")
 header_data("L", wrap, regtype="number", linestart="space")
 
-if wrap_mpi:
+if use_mpio:
     header_data("P", wrap, regtype="number", linestart="space", pref2="D", mpi=True)
     header_data("FD", wrap, regtype="number", linestart="space",
                 header="H5FDmpi.h", mpi=True)
