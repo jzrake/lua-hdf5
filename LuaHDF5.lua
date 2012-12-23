@@ -228,7 +228,7 @@ function DataSetClass:read()
    return buf
 end
 
-function DataSetClass:read_selection(fspace, mspace, buffer)
+function DataSetClass:read_selection(mspace, fspace, buffer)
    local htype = self:get_type()
    local bytes = mspace:get_select_npoints() * htype:get_size()
    if bytes > #buffer then
@@ -291,6 +291,43 @@ function DataSetMeta:__tostring()
       return string.format("<HDF5 data set: \"%s\">", self._name)
    else
       return "<Closed HDF5 data set>"
+   end
+end
+function DataSetMeta:__index(slice)
+   if self._hid == 0 then
+      return nil
+   elseif type(slice) == 'string' then
+      return BaseMeta.__index(self, slice)
+   elseif type(slice) == 'table' then
+      --------------------------------------------------------------------------
+      -- A[slice] := A[{{i0,i1,di}, {j0:j1,dj}}] := A[i0:i1:di, j0:j1:dj]
+      -- 
+      -- defaults
+      -- 
+      -- i0 = i0 or 0
+      -- i1 = i1 or Ni-1
+      -- di = di or 1
+      --------------------------------------------------------------------------
+      local fspace = self:get_space()
+      local mspace = hdf5.DataSpace()
+      local extent = fspace:get_extent()
+      local rank = #extent
+      local start, stride, count, block = { }, { }, { }, { }
+      for i=1,rank do
+	 start[i] = slice[i][1] or 0
+	 stride[i] = slice[i][3] or 1
+	 count[i] = ((slice[i][2] or extent[i]) - start[i]) / stride[i]
+	 block[i] = 1
+      end
+      mspace:set_extent(count)
+      fspace:select_hyperslab(start, stride, count, block)
+      local buf = buffer.new_buffer(mspace:get_select_npoints() *
+				    self:get_type():get_size())
+      self:read_selection(mspace, fspace, buf)
+      for i=1,rank do
+	 start[i] = 0
+      end
+      return array.view(buf, 'double', start, count)
    end
 end
 
@@ -595,7 +632,7 @@ local function test7()
    space:set_extent{4,4,8}
    space:select_hyperslab({0,0,0}, {1,1,1}, {4,4,8}, {1,1,1})
    h5f["dataset"]:read_selection(space, space, buf)
-
+   assert(#h5f["dataset"][{{0,4,2},{0,4,2},{0,8,2}}] == 16)
    h5f:close()
 end
 
