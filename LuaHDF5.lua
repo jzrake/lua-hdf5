@@ -145,10 +145,10 @@ function IndexableMeta:__newindex(key, value)
       -- behavior is like that of array.view, and we can write to a buffer
       -- automatically.
       --------------------------------------------------------------------------
-      local start, size, stride, block = value:selection()
+      local start, stride, count, block = value:selection()
       local mspc = hdf5.DataSpace()
-      mspc:set_extent(size)
-      mspc:select_hyperslab(start, size, stride, block)
+      mspc:set_extent(count)
+      mspc:select_hyperslab(start, stride, count, block)
       local dtyp = hdf5.DataType(value:dtype())
       local dset = hdf5.DataSet(self, key, mspc, dtyp)
       dset:write(value:buffer())
@@ -309,7 +309,7 @@ end
 -- HDF5 DataSpace class methods
 --------------------------------------------------------------------------------
 local DataSpaceClass = inherit_from(BaseClass)
-function DataSpaceClass:get_extent(type)
+function DataSpaceClass:get_extent(what)
    if self._hid == 0 then
       error("DataSpace:get_extent cannot operate on closed data space")
    end
@@ -327,7 +327,10 @@ function DataSpaceClass:get_extent(type)
       csize[i] = current_size[i-1]
       msize[i] = maximum_size[i-1]
    end
-   return ({current=csize, maximum=msize})[type] or csize
+   return ({current=csize, maximum=msize})[what] or csize
+end
+function DataSpaceClass:get_select_npoints()
+   return H5.H5Sget_select_npoints(self._hid)
 end
 function DataSpaceClass:set_extent(extent)
    if self._hid == 0 then
@@ -339,16 +342,16 @@ function DataSpaceClass:set_extent(extent)
 				       maximum_size)
    if #err < 0 then error("DataSpace:set_extent") end
 end
-function DataSpaceClass:select_hyperslab(start, size, stride, block)
+function DataSpaceClass:select_hyperslab(start, stride, count, block)
    if self._hid == 0 then
       error("DataSpace:select_hyperslab cannot operate on closed data space")
    end
    local hstart = H5.new_hsize_t_arr(start)
-   local hsize = H5.new_hsize_t_arr(size)
    local hstride = H5.new_hsize_t_arr(stride)
+   local hcount = H5.new_hsize_t_arr(count)
    local hblock = H5.new_hsize_t_arr(block)
-   local err = H5.H5Sselect_hyperslab(self._hid, H5.H5S_SELECT_SET, hstart, hsize,
-				      hstride, hblock)
+   local err = H5.H5Sselect_hyperslab(self._hid, H5.H5S_SELECT_SET, hstart, 
+				      hstride, hcount, hblock)
    if #err < 0 then error("DataSpace:select_hyperslab") end
 end
 local DataSpaceMeta = inherit_from(BaseMeta)
@@ -562,10 +565,10 @@ local function test6()
    local file = hdf5.File("outfile.h5", "r")
    assert(#file["data3d"]:read() == 64)
    assert(file["data3d"]:value():dtype() == 'double')
-   local start, size = file["data3d"]:value():selection()
-   assert(size[1] == 2)
-   assert(size[2] == 2)
-   assert(size[3] == 2)
+   local start, stride, count, block = file["data3d"]:value():selection()
+   assert(count[1] == 2)
+   assert(count[2] == 2)
+   assert(count[3] == 2)
    file:close()
 end
 
@@ -584,12 +587,19 @@ end
 if ... then -- if __name__ == "__main__"
    return hdf5
 else
-   test1()
-   test2()
-   test3()
-   test4()
-   test5()
-   test6()
-   test7()
-   print(debug.getinfo(1).source, ": All tests passed")
+   local function runtests()
+      test1()
+      test2()
+      test3()
+      test4()
+      test5()
+      test6()
+      test7()
+   end
+   local success, msg = xpcall(runtests, debug.traceback)
+   if not success then
+      print(msg)
+   else
+      print(debug.getinfo(1).source, ": All tests passed")
+   end
 end

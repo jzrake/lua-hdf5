@@ -49,7 +49,7 @@ function array.view(buf, dtype, start, size, stride)
 		 _dtype_string=dtype,
 		 _rank=rank,
 		 _start=start,
-		 _size=size,
+		 _count=size,
 		 _stride=stride,
 		 _block=block }
 
@@ -83,7 +83,7 @@ function array.view(buf, dtype, start, size, stride)
       return self._dtype_string
    end
    function new:selection()
-      return self._start, self._size, self._stride, self._block
+      return self._start, self._stride, self._count, self._block
    end
 
    local mt = { }
@@ -95,7 +95,7 @@ function array.view(buf, dtype, start, size, stride)
       if #ind ~= self._rank then error("wrong number of indices") end
       local n = 0
       for i=1,self._rank do
-	 if ind[i] < 0 or ind[i] >= self._size[i] then
+	 if ind[i] < 0 or ind[i] >= self._count[i] then
 	    error("index out of bounds")
 	 end
 	 n = n + (ind[i] + self._start[i]) * self._stride[i] * self._skip[i]
@@ -108,7 +108,7 @@ function array.view(buf, dtype, start, size, stride)
       if #ind ~= self._rank then error("wrong number of indices") end
       local n = 0
       for i=1,self._rank do
-	 if ind[i] < 0 or ind[i] >= self._size[i] then
+	 if ind[i] < 0 or ind[i] >= self._count[i] then
 	    error("index out of bounds")
 	 end
 	 n = n + (ind[i] + self._start[i]) * self._stride[i] * self._skip[i]
