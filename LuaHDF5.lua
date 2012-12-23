@@ -206,7 +206,7 @@ function DataSetClass:write(buf)
    local typ = H5.H5Dget_type(self._hid)
    local siz = H5.H5Tget_size(typ)
    if H5.H5Sget_select_npoints(spc) * siz > #buf then
-      error("dataspace selection is too large for buffer")
+      error("data space selection is too large for buffer")
    end
    H5.H5Dwrite(self._hid, typ, spc, spc, hp0, buf)
    H5.H5Sclose(spc)
@@ -271,6 +271,7 @@ function DataSetClass:get_type()
    local typ = H5.H5Dget_type(self._hid)
    local ret = hdf5.DataType(typ) -- a copy of typ is made
    H5.H5Tclose(typ)
+   return ret
 end
 
 local DataSetMeta = inherit_from(BaseMeta)
@@ -310,7 +311,7 @@ end
 local DataSpaceClass = inherit_from(BaseClass)
 function DataSpaceClass:get_extent(type)
    if self._hid == 0 then
-      error("DataSpaceClass:get_extent cannot operate on closed data space")
+      error("DataSpace:get_extent cannot operate on closed data space")
    end
    local rank = H5.H5Sget_simple_extent_ndims(self._hid)
    local csize = { }
@@ -330,22 +331,25 @@ function DataSpaceClass:get_extent(type)
 end
 function DataSpaceClass:set_extent(extent)
    if self._hid == 0 then
-      error("DataSpaceClass:set_extent cannot operate on closed data space")
+      error("DataSpace:set_extent cannot operate on closed data space")
    end
    local current_size = H5.new_hsize_t_arr(extent)
    local maximum_size = H5.new_hsize_t_arr(extent)
-   H5.H5Sset_extent_simple(self._hid, #extent, current_size, maximum_size)
+   local err = H5.H5Sset_extent_simple(self._hid, #extent, current_size,
+				       maximum_size)
+   if #err < 0 then error("DataSpace:set_extent") end
 end
 function DataSpaceClass:select_hyperslab(start, size, stride, block)
    if self._hid == 0 then
-      error("DataSpaceClass:select_hyperslab cannot operate on closed data space")
+      error("DataSpace:select_hyperslab cannot operate on closed data space")
    end
    local hstart = H5.new_hsize_t_arr(start)
    local hsize = H5.new_hsize_t_arr(size)
    local hstride = H5.new_hsize_t_arr(stride)
    local hblock = H5.new_hsize_t_arr(block)
-   H5.H5Sselect_hyperslab(self._hid, H5.H5S_SELECT_SET, hstart, hsize, hstride,
-			  hblock)
+   local err = H5.H5Sselect_hyperslab(self._hid, H5.H5S_SELECT_SET, hstart, hsize,
+				      hstride, hblock)
+   if #err < 0 then error("DataSpace:select_hyperslab") end
 end
 local DataSpaceMeta = inherit_from(BaseMeta)
 function DataSpaceMeta:__tostring()
