@@ -37,14 +37,14 @@ CFLAGS ?= -Wall
 CURL ?= curl
 UNTAR ?= tar -xvf
 CD ?= cd
-RM ?= rm
+RM ?= rm -f
+OS ?= generic
 LVER ?= lua-5.2.1
 
 LUA_I ?= -I$(LUA_HOME)/include
 LUA_L ?= -L$(LUA_HOME)/lib -llua
 HDF_I ?= -I$(HDF_HOME)/include
 HDF_L ?= -L$(HDF_HOME)/lib -lz -lhdf5
-
 
 default : main
 
@@ -53,7 +53,7 @@ lua : $(LVER)
 $(LVER) :
 	$(CURL) http://www.lua.org/ftp/$(LVER).tar.gz -o $(LVER).tar.gz
 	$(UNTAR) $(LVER).tar.gz
-	$(CD) $(LVER); $(MAKE) generic CC=$(CC); \
+	$(CD) $(LVER); $(MAKE) $(OS) CC=$(CC); \
 		$(MAKE) install INSTALL_TOP=$(PWD)/$(LVER)
 	$(RM) $(LVER).tar.gz
 
