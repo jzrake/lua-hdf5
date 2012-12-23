@@ -228,6 +228,17 @@ function DataSetClass:read()
    return buf
 end
 
+function DataSetClass:read_selection(fspace, mspace, buffer)
+   local htype = self:get_type()
+   local bytes = mspace:get_select_npoints() * htype:get_size()
+   if bytes > #buffer then
+      error("data space selection is too large for buffer")
+   end
+   local err = H5.H5Dread(self._hid, htype._hid, mspace._hid, fspace._hid, hp0,
+			  buffer)
+   if #err < 0 then error("DataSetClass:read_selection") end
+end
+
 function DataSetClass:value()
    -----------------------------------------------------------------------------
    -- Read internal data into an object whose Lua type is inferred from the HDF5
@@ -579,6 +590,12 @@ local function test7()
    h5f["dataset"] = my_data
    local group1 = h5f:require_group("group1")
    group1["message"] = "here is the message"
+
+   local space = hdf5.DataSpace()
+   space:set_extent{4,4,8}
+   space:select_hyperslab({0,0,0}, {1,1,1}, {4,4,8}, {1,1,1})
+   h5f["dataset"]:read_selection(space, space, buf)
+
    h5f:close()
 end
 
