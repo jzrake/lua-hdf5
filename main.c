@@ -34,11 +34,22 @@ int main(int argc, char **argv)
     printf("usage: main script.lua [arg1=val1 arg2=val2]\n");
   }
   else {
-    if (luaL_dofile(L, argv[1])) {
+    char luacode[4096];
+    snprintf(luacode, 4096, "\
+    local f, err = loadfile('%s')\n					\
+    if not f then\n							\
+      print(err)\n							\
+    else								\
+      local success, msg = xpcall(f, debug.traceback)\n			\
+      if not success then\n						\
+         print(msg)\n							\
+      end\n								\
+    end\n", argv[1]);
+    int err = luaL_dostring(L, luacode);
+    if (err) {
       printf("%s\n", lua_tostring(L, -1));
     }
   }
-
   lua_close(L);
   return 0;
 }

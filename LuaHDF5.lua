@@ -653,24 +653,15 @@ local function test7()
 end
 
 
-
 if ... then -- if __name__ == "__main__"
    return hdf5
 else
-   local function runtests()
-      test1()
-      test2()
-      test3()
-      test4()
-      test5()
-      test6()
-      test7()
-   end
-   local success, msg = xpcall(runtests, debug.traceback)
-   if not success then
-      print(msg)
-      collectgarbage()
-   else
-      print(debug.getinfo(1).source, ": All tests passed")
-   end
+   test1()
+   test2()
+   test3()
+   test4()
+   test5()
+   test6()
+   test7()
+   print(debug.getinfo(1).source, ": All tests passed")
 end
