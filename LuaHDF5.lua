@@ -283,6 +283,10 @@ function DataSetMeta:__index(slice)
    elseif type(slice) == 'string' then
       return BaseMeta.__index(self, slice)
    elseif type(slice) == 'table' then
+      local htype = self:get_type()
+      if htype:type_class() ~= 'float' then
+	 error("DataSet:can only index data sets with class 'float'")
+      end
       --------------------------------------------------------------------------
       -- A[slice] := A[{{i0,i1,di}, {j0:j1,dj}}] := A[i0:i1:di, j0:j1:dj]
       -- 
@@ -311,7 +315,7 @@ function DataSetMeta:__index(slice)
       for i=1,rank do
 	 start[i] = 0
       end
-      return array.view(buf, 'double', start, count)
+      return array.view(buf, htype:type_string(), start, count)
    end
 end
 
@@ -644,6 +648,7 @@ local function test7()
    space:select_hyperslab({0,0,0}, {1,1,1}, {4,4,8}, {1,1,1})
    h5f["dataset"]:read_selection(space, space, buf)
    assert(#h5f["dataset"][{{0,4,2},{0,4,2},{0,8,2}}] == 16)
+
    h5f:close()
 end
 
@@ -664,6 +669,7 @@ else
    local success, msg = xpcall(runtests, debug.traceback)
    if not success then
       print(msg)
+      collectgarbage()
    else
       print(debug.getinfo(1).source, ": All tests passed")
    end
