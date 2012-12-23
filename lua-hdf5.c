@@ -20,6 +20,13 @@ static int _new_hid_t(lua_State *L)
   lh5_push_hid_t(L, 0);
   return 1;
 }
+static int _hid_t__len(lua_State *L)
+{
+  hid_t *h = (hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t");
+  lua_pushnumber(L, *h);
+  return 1;
+}
+
 
 // -----------------------------------------------------------------------------
 // herr_t
@@ -34,6 +41,13 @@ static int _new_herr_t(lua_State *L)
   lh5_push_herr_t(L, 0);
   return 1;
 }
+static int _herr_t__len(lua_State *L)
+{
+  herr_t *h = (herr_t*) luaL_checkudata(L, 1, "HDF5::herr_t");
+  lua_pushnumber(L, *h);
+  return 1;
+}
+
 
 // -----------------------------------------------------------------------------
 // H5O_info_t
@@ -189,9 +203,18 @@ int luaopen_hdf5(lua_State *L)
   luaL_setfuncs(L, hsize_t_arr_meta, 0);
   lua_pop(L, 1);
 
-  luaL_newmetatable(L, "HDF5::hid_t");
-  lua_pop(L, 1);
+  luaL_Reg herr_t_meta[] = {
+    {"__len", _herr_t__len}, // really the number value
+    {NULL, NULL}};
   luaL_newmetatable(L, "HDF5::herr_t");
+  luaL_setfuncs(L, herr_t_meta, 0);
+  lua_pop(L, 1);
+
+  luaL_Reg hid_t_meta[] = {
+    {"__len", _hid_t__len}, // really the number value
+    {NULL, NULL}};
+  luaL_newmetatable(L, "HDF5::hid_t");
+  luaL_setfuncs(L, hid_t_meta, 0);
   lua_pop(L, 1);
 
 
