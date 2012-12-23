@@ -247,29 +247,13 @@ function DataSetClass:value()
    local space = self:get_space()
    local start = { }
    local size = space:get_extent()
-   local tid1 = H5.H5Dget_type(self._hid)
-   local tcls = H5.H5Tget_class(tid1)
-
+   local tstr = self:get_type():type_string()
+   local tcls = self:get_type():type_class()
    for i,v in ipairs(size) do start[i] = 0 end
-   local ret
-   if false then
-      ret = nil -- just to align text
-   elseif tcls == H5.H5T_STRING then
-      ret = tostring(self:read())
-   elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_CHAR) then
-      ret = array.view(self:read(), 'char', start, size)
-   elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_INT) then
-      ret = array.view(self:read(), 'int', start, size)
-   elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_FLOAT) then
-      ret = array.view(self:read(), 'float', start, size)
-   elseif H5.H5Tequal(tid1, H5.H5T_NATIVE_DOUBLE) then
-      ret = array.view(self:read(), 'double', start, size)
-   else
-      print("could not infer a Lua type from the data set")
+   if tcls == 'string' then return tostring(self:read())
+   elseif tcls == 'float' then return array.view(self:read(), tstr, start, size)
+   else error("could not infer a Lua type from the data set")
    end
-
-   H5.H5Tclose(tid1)
-   return ret
 end
 function DataSetClass:get_space()
    return hdf5.DataSpace(self)
@@ -342,7 +326,29 @@ end
 function DataTypeClass:set_size(size)
    return H5.H5Tset_size(self._hid, size)
 end
-
+function DataTypeClass:type_string()
+   local htyp = self._hid
+   local tcls = H5.H5Tget_class(htyp)
+   if tcls == H5.H5T_STRING then return 'string'
+   elseif H5.H5Tequal(htyp, H5.H5T_NATIVE_CHAR) then return 'char'
+   elseif H5.H5Tequal(htyp, H5.H5T_NATIVE_INT) then return 'int'
+   elseif H5.H5Tequal(htyp, H5.H5T_NATIVE_FLOAT) then return 'float'
+   elseif H5.H5Tequal(htyp, H5.H5T_NATIVE_DOUBLE) then return 'double'
+   else return nil
+   end
+end
+function DataTypeClass:type_class()
+   return ({[H5.H5T_INTEGER]='int',
+	    [H5.H5T_FLOAT]='float',
+	    [H5.H5T_STRING]='string',
+	    [H5.H5T_BITFIELD]='bitfield',
+	    [H5.H5T_OPAQUE]='opaque',
+	    [H5.H5T_COMPOUND]='compound',
+	    [H5.H5T_REFERENCE]='reference',
+	    [H5.H5T_ENUM]='enum',
+	    [H5.H5T_VLEN]='vlen',
+	    [H5.H5T_ARRAY]='array'})[H5.H5Tget_class(self._hid)]
+end
 local DataTypeMeta = inherit_from(BaseMeta)
 function DataTypeMeta:__tostring()
    if self._hid ~= 0 then
@@ -599,10 +605,10 @@ end
 local function test6()
    local file = hdf5.File("outfile.h5", "w")
    local fspc = hdf5.DataSpace('simple')
-   local type = hdf5.DataType('double')
+   local htyp = hdf5.DataType('double')
    fspc:set_extent{4,4,8}
 
-   local dset = hdf5.DataSet(file, "data1d", fspc, type)
+   local dset = hdf5.DataSet(file, "data1d", fspc, htyp)
    local buf = buffer.new_buffer(4*4*8*8)
    dset:write(buf)
 
@@ -627,6 +633,11 @@ local function test7()
    h5f["dataset"] = my_data
    local group1 = h5f:require_group("group1")
    group1["message"] = "here is the message"
+
+   assert(group1["message"]:get_type():type_class() == 'string')
+   assert(group1["message"]:get_type():type_string() == 'string')
+   assert(h5f["dataset"]:get_type():type_class() == 'float')
+   assert(h5f["dataset"]:get_type():type_string() == 'double')
 
    local space = hdf5.DataSpace()
    space:set_extent{4,4,8}
