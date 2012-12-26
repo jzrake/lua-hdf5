@@ -85,6 +85,9 @@ function array.view(buf, dtype, start, size, stride)
    function new:selection()
       return self._start, self._stride, self._count, self._block
    end
+   function new:shape()
+      return self._count
+   end
 
    local mt = { }
    function mt:__index(ind)

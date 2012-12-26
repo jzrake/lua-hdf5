@@ -228,15 +228,34 @@ function DataSetClass:read()
    return buf
 end
 
-function DataSetClass:read_selection(mspace, fspace, buffer)
+function DataSetClass:read_selection(mspace, fspace, buf)
+   -----------------------------------------------------------------------------
+   -- Read from the data set into `buf` according to source `fspace` and
+   -- destination `mspace`.
+   -----------------------------------------------------------------------------
    local htype = self:get_type()
    local bytes = mspace:get_select_npoints() * htype:get_size()
-   if bytes > #buffer then
+   if bytes > #buf then
       error("data space selection is too large for buffer")
    end
    local err = H5.H5Dread(self._hid, htype._hid, mspace._hid, fspace._hid, hp0,
-			  buffer)
+			  buf)
    if #err < 0 then error("DataSetClass:read_selection") end
+end
+
+function DataSetClass:write_selection(mspace, fspace, buf)
+   -----------------------------------------------------------------------------
+   -- Write from `buf` into the data set according to destination `fspace` and
+   -- source `mspace`.
+   -----------------------------------------------------------------------------
+   local htype = self:get_type()
+   local bytes = mspace:get_select_npoints() * htype:get_size()
+   if bytes < #buf then
+      error("data space selection is too small for buffer")
+   end
+   local err = H5.H5Dwrite(self._hid, htype._hid, mspace._hid, fspace._hid, hp0,
+			   buf)
+   if #err < 0 then error("DataSetClass:write_selection") end
 end
 
 function DataSetClass:value()
@@ -285,7 +304,7 @@ function DataSetMeta:__index(slice)
    elseif type(slice) == 'table' then
       local htype = self:get_type()
       if htype:type_class() ~= 'float' then
-	 error("DataSet:can only index data sets with class 'float'")
+	 error("DataSet:can only index data sets whose class is 'float'")
       end
       --------------------------------------------------------------------------
       -- A[slice] := A[{{i0,i1,di}, {j0:j1,dj}}] := A[i0:i1:di, j0:j1:dj]
@@ -319,6 +338,59 @@ function DataSetMeta:__index(slice)
    end
 end
 
+function DataSetMeta:__newindex(slice, value)
+   --------------------------------------------------------------------------
+   -- The variables `slice` and `value` must conform to:
+   --
+   -- slice = {{i0,i1,di}, {j0,j1,dj}}
+   -- start, stride, count, block = value:selection()
+   -- dtype = value:dtype()
+   -- buffer = value:buffer()
+   --
+   --------------------------------------------------------------------------
+   if self._hid == 0 then
+      error("DataSet:cannot write to closed data set")
+
+   elseif type(slice) == 'string' then
+      return BaseMeta.__index(self, slice)
+
+   elseif type(slice) == 'table' then
+      local htype = self:get_type()
+      local buf = value:buffer()
+
+      if htype:type_class() ~= 'float' then
+	 error("DataSet:can only assign to data sets with class 'float'")
+      elseif htype:type_string() ~= value:dtype() then
+	 error('DataSet:source and destination must have the same data type')
+      end
+
+      --------------------------------------------------------------------------
+      -- Parse the `slice` table in order to determine target (file space)
+      -- memory selection.
+      --------------------------------------------------------------------------
+      local fspace = self:get_space()
+      local extent = fspace:get_extent()
+      local rank = #extent
+      local start, stride, count, block = { }, { }, { }, { }
+
+      for i=1,rank do
+	 start[i] = slice[i][1] or 0
+	 stride[i] = slice[i][3] or 1
+	 count[i] = ((slice[i][2] or extent[i]) - start[i]) / stride[i]
+	 block[i] = 1
+      end
+      fspace:select_hyperslab(start, stride, count, block)
+
+      --------------------------------------------------------------------------
+      -- Build the source memory selection from `value` object description.
+      --------------------------------------------------------------------------
+      local start, stride, count, block = value:selection()
+      local mspace = hdf5.DataSpace()
+      mspace:set_extent(count)
+      mspace:select_hyperslab(start, stride, count, block)
+      self:write_selection(mspace, fspace, buf)
+   end
+end
 
 --------------------------------------------------------------------------------
 -- HDF5 DataType class methods
@@ -647,8 +719,14 @@ local function test7()
    space:set_extent{4,4,8}
    space:select_hyperslab({0,0,0}, {1,1,1}, {4,4,8}, {1,1,1})
    h5f["dataset"]:read_selection(space, space, buf)
-   assert(#h5f["dataset"][{{0,4,2},{0,4,2},{0,8,2}}] == 16)
+   local read_select = h5f["dataset"][{{0,4,2},{0,4,2},{0,8,2}}]
+   assert(#read_select == 16)
 
+   h5f["dataset"][{{0,4,2},{0,4,2},{0,4,1}}] = read_select
+   local read_shape = read_select:shape()
+   assert(read_shape[1] == 2)
+   assert(read_shape[2] == 2)
+   assert(read_shape[3] == 4)
    h5f:close()
 end
 
