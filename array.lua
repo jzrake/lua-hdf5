@@ -18,25 +18,25 @@ function array.set_typed(buf, T, n, v)
 end
 
 
-function array.array(size, dtype)
-   local size = type(size) == 'table' and size or {size}
+function array.array(count, dtype)
+   local count = type(count) == 'table' and count or {count}
    local start = { }
-   local rank = #size
+   local rank = #count
    local dtype = dtype or 'double'
    local nelem = 1
    for i=1,rank do
-      nelem = nelem * size[i]
+      nelem = nelem * count[i]
       start[i] = 0
    end
    local buf = buffer.new_buffer(nelem * array.sizeof(dtype))
-   return array.view(buf, dtype, start, size)
+   return array.view(buf, dtype, start, count)
 end
 
 
-function array.view(buf, dtype, start, size, stride)
+function array.view(buf, dtype, start, count, stride)
    local sz =  array.sizeof(dtype)
    local start = start or { 0 }
-   local size = size or { #buf/sz }
+   local count = count or { #buf/sz }
    local stride = stride or { }
    local block = { }
    local rank = #start
@@ -49,20 +49,24 @@ function array.view(buf, dtype, start, size, stride)
 		 _dtype_string=dtype,
 		 _rank=rank,
 		 _start=start,
-		 _count=size,
+		 _count=count,
 		 _stride=stride,
 		 _block=block }
 
-   if rank ~= #size or
+   if rank ~= #count or
       rank ~= #stride or
       rank ~= #block then
       error("inconsistent sizes of extent description")
    end
+
+   local extent = { } -- equivalent global shape of the buffer
    local bsize = 1 -- buffer size spanned
    local vsize = 1 -- elements in view
+
    for i=1,rank do
-      vsize = vsize * size[i]
-      bsize = bsize * size[i] * stride[i]
+      extent[i] = start[i] + count[i] * stride[i]
+      vsize = vsize * count[i]
+      bsize = bsize * extent[i]
    end
    if bsize * sz > #buf then
       error("buffer is too small for the requested view")
@@ -71,10 +75,11 @@ function array.view(buf, dtype, start, size, stride)
    -- skip is the conventional C-ordering distance between elements along the
    -- i-th axis. Skip sizes are in units of the data element size.
    local skip = {[rank]=1}
-   for i=rank-1,1,-1 do skip[i] = skip[i+1] * size[i+1] end
+   for i=rank-1,1,-1 do skip[i] = skip[i+1] * count[i+1] end
 
    new._elem = vsize
    new._skip = skip
+   new._extent = extent
 
    function new:buffer()
       return self._buf
@@ -85,8 +90,11 @@ function array.view(buf, dtype, start, size, stride)
    function new:selection()
       return self._start, self._stride, self._count, self._block
    end
-   function new:shape()
+   function new:shape() -- shape of the selection
       return self._count
+   end
+   function new:extent() -- global buffer extent
+      return self._extent
    end
 
    local mt = { }

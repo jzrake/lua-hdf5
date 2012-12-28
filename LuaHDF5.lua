@@ -119,12 +119,12 @@ function IndexableMeta:__index(key)
    elseif info.type == H5.H5O_TYPE_DATASET then
       return hdf5.DataSet(self, key)
    else
-      error("object %s/%s has an unsupported type", self._name, key)
+      error("Indexable:object %s/%s has an unsupported type", self._name, key)
    end
 end
 function IndexableMeta:__newindex(key, value)
    if self._hid == 0 then -- object is closed
-      error("cannot assign to closed object")
+      error("Indexable:cannot assign to closed object")
    end
    if type(value) == 'string' then
       local targ = self._hid
@@ -139,6 +139,7 @@ function IndexableMeta:__newindex(key, value)
       H5.H5Dclose(dset)
       H5.H5Tclose(strn)
       H5.H5Sclose(fspc)
+
    elseif value.buffer and value.dtype and value.selection then
       --------------------------------------------------------------------------
       -- If the buffer, dtype, and selection methods are given, assume their
@@ -146,14 +147,14 @@ function IndexableMeta:__newindex(key, value)
       -- automatically.
       --------------------------------------------------------------------------
       local start, stride, count, block = value:selection()
-      local mspc = hdf5.DataSpace()
-      mspc:set_extent(count)
-      mspc:select_hyperslab(start, stride, count, block)
-      local dtyp = hdf5.DataType(value:dtype())
-      local dset = hdf5.DataSet(self, key, mspc, dtyp)
-      dset:write(value:buffer())
+      local mspace = hdf5.DataSpace(value:extent())
+      mspace:select_hyperslab(start, stride, count, block)
+
+      local dset = hdf5.DataSet(self, key, 'w',
+				{dtype=value:dtype(), shape=count})
+      dset:write_selection(mspace, nil, value:buffer())
    else
-      error("unrecognized type for writing")
+      error("DataSet:unrecognized type for writing")
    end
 end
 function IndexableMeta:__pairs()
@@ -231,31 +232,33 @@ end
 function DataSetClass:read_selection(mspace, fspace, buf)
    -----------------------------------------------------------------------------
    -- Read from the data set into `buf` according to source `fspace` and
-   -- destination `mspace`.
+   -- destination `mspace`. `fspace` defaults to the whole file space extent.
    -----------------------------------------------------------------------------
+   local fspace = fspace or self:get_space()
    local htype = self:get_type()
-   local bytes = mspace:get_select_npoints() * htype:get_size()
+   local bytes = mspace:get_select_npoints() * htype:get_size() -- source size
    if bytes > #buf then
       error("data space selection is too large for buffer")
    end
    local err = H5.H5Dread(self._hid, htype._hid, mspace._hid, fspace._hid, hp0,
 			  buf)
-   if #err < 0 then error("DataSetClass:read_selection") end
+   if #err < 0 then error("DataSet:read_selection") end
 end
 
 function DataSetClass:write_selection(mspace, fspace, buf)
    -----------------------------------------------------------------------------
    -- Write from `buf` into the data set according to destination `fspace` and
-   -- source `mspace`.
+   -- source `mspace`. `fspace` defaults to the whole file space extent.
    -----------------------------------------------------------------------------
+   local fspace = fspace or self:get_space()
    local htype = self:get_type()
-   local bytes = mspace:get_select_npoints() * htype:get_size()
-   if bytes < #buf then
-      error("data space selection is too small for buffer")
+   local bytes = fspace:get_select_npoints() * htype:get_size() -- dest size
+   if bytes > #buf then
+      error("DataSet:data space selection is too small for buffer")
    end
    local err = H5.H5Dwrite(self._hid, htype._hid, mspace._hid, fspace._hid, hp0,
 			   buf)
-   if #err < 0 then error("DataSetClass:write_selection") end
+   if #err < 0 then error("DataSet:write_selection") end
 end
 
 function DataSetClass:value()
@@ -271,7 +274,7 @@ function DataSetClass:value()
    for i,v in ipairs(size) do start[i] = 0 end
    if tcls == 'string' then return tostring(self:read())
    elseif tcls == 'float' then return array.view(self:read(), tstr, start, size)
-   else error("could not infer a Lua type from the data set")
+   else error("DataSet:could not infer a Lua type from the data set")
    end
 end
 function DataSetClass:get_space()
@@ -385,8 +388,7 @@ function DataSetMeta:__newindex(slice, value)
       -- Build the source memory selection from `value` object description.
       --------------------------------------------------------------------------
       local start, stride, count, block = value:selection()
-      local mspace = hdf5.DataSpace()
-      mspace:set_extent(count)
+      local mspace = hdf5.DataSpace(value:extent())
       mspace:select_hyperslab(start, stride, count, block)
       self:write_selection(mspace, fspace, buf)
    end
@@ -506,6 +508,8 @@ function hdf5.File(name, mode)
 		 _close=H5.H5Fclose,
 		 _open_objects={ } }
    inherit_from(FileClass, new)
+   setmetatable(new, FileMeta)
+
    if mode == "w" then
       new._hid = H5.H5Fcreate(name, H5.H5F_ACC_TRUNC, hp0, hp0)
    elseif mode == "r" then
@@ -513,9 +517,8 @@ function hdf5.File(name, mode)
    elseif mode == "r+" then
       new._hid = H5.H5Fopen(name, H5.H5F_ACC_RDWR, hp0)
    else
-      error("mode must be one of [w, r, r+]")
+      error("File:mode must be one of [w, r, r+]")
    end
-   setmetatable(new, FileMeta)
    return new
 end
 
@@ -531,40 +534,66 @@ function hdf5.Group(parent, name)
 		 _close=H5.H5Gclose,
 		 _open_objects={ } }
    inherit_from(GroupClass, new)
+   setmetatable(new, GroupMeta)
    if not H5.H5Lexists(parent._hid, name, hp0) then
       new._hid = H5.H5Gcreate2(parent._hid, name, hp0, hp0, hp0)
    else
       new._hid = H5.H5Gopen2(parent._hid, name, hp0)
    end
    parent._open_objects[name] = new
-   setmetatable(new, GroupMeta)
    return new
 end
 
 
 --------------------------------------------------------------------------------
 -- HDF5 DataSet constructor
--- 
--- DataSet's may be either created or opened by this constructor. If a DataSet
--- with `name` exists in the object `parent` then it is opened and returned, and
--- the `dataspace` and `datatype` arguments are ignored. Otherwise, a new
--- DataSet, with corresponding space and type, is created and returned.
 --------------------------------------------------------------------------------
-function hdf5.DataSet(parent, name, dataspace, datatype)
+function hdf5.DataSet(parent, name, mode, opts)
    local new = { _type='data set',
 		 _parent=parent,
 		 _name=name,
 		 _hid=0,
 		 _close=H5.H5Dclose }
    inherit_from(DataSetClass, new)
-   if not H5.H5Lexists(parent._hid, name, hp0) then
-      new._hid = H5.H5Dcreate2(parent._hid, name, datatype._hid, dataspace._hid,
-			       hp0, hp0, hp0)
-   else
+   setmetatable(new, DataSetMeta)
+
+   local opts = opts or { }
+   local mode = mode or "r+"
+
+   if mode == "w" then
+      local space = hdf5.DataSpace(opts.shape)
+      local dtype = hdf5.DataType(opts.dtype)
+
+      if H5.H5Lexists(parent._hid, name, hp0) then
+       	 local err = H5.H5Ldelete(parent._hid, name)
+       	 if #err < 0 then
+       	    error("DataSet:failed to clobber existing data set")
+       	 else
+       	    print("DataSet:successfully clobbered existing data set")
+       	 end
+      end
+      local dcpl = H5.H5Pcreate(H5.H5P_DATASET_CREATE)
+      if opts.chunk then
+       	 local c = H5.new_hsize_t_arr(opts.chunk)
+       	 local err = H5.H5Pset_chunk(dcpl, #opts.chunk, c)
+	 if #err < 0 then error("DataSet:could not set chunk") end
+      end
+      new._hid = H5.H5Dcreate2(parent._hid, name, dtype._hid, space._hid, hp0,
+      			       dcpl, hp0)
+      H5.H5Pclose(dcpl)
+   elseif mode == "r+" then
+      if not H5.H5Lexists(parent._hid, name, hp0) then
+	 error("DataSet:cannot open data set for reading")
+      end
       new._hid = H5.H5Dopen2(parent._hid, name, hp0)
+   else
+      error("DataSet:mode must be one of [w, r+]")
+   end
+
+   if #new._hid < 0 then
+      error("DataSet:error opening or creating data set")
    end
    parent._open_objects[name] = new
-   setmetatable(new, DataSetMeta)
    return new
 end
 
@@ -581,6 +610,8 @@ function hdf5.DataType(typeid)
 		 _hid=0,
 		 _close=H5.H5Tclose }
    inherit_from(DataTypeClass, new)
+   setmetatable(new, DataTypeMeta)
+
    local typedict = {char=H5.H5T_NATIVE_CHAR,
 		     int=H5.H5T_NATIVE_INT,
 		     float=H5.H5T_NATIVE_FLOAT,
@@ -590,7 +621,6 @@ function hdf5.DataType(typeid)
    else
       new._hid = H5.H5Tcopy(typeid)
    end
-   setmetatable(new, DataTypeMeta)
    return new
 end
 
@@ -599,24 +629,29 @@ end
 -- HDF5 DataSpace constructor
 --
 -- If `arg` is a string, then it must be either 'simple' or 'scalar' and a new
--- data space is created and returned. If `arg` is a data set then its data
--- space is extracted and returned.
+-- data space is returned [default=simple]. If `arg` is a numeric table then a
+-- new simple data space with that extent is returned. If `arg` is a data set
+-- then its data space is returned.
 --------------------------------------------------------------------------------
 function hdf5.DataSpace(arg)
    local new = { _type='data space',
 		 _hid=0,
 		 _close=H5.H5Sclose }
    inherit_from(DataSpaceClass, new)
-   local arg = arg or 'simple'
-   if type(arg) == 'string' then
+   setmetatable(new, DataSpaceMeta)
+
+   if not arg or type(arg) == 'string' then
       local t = { simple=H5.H5S_SIMPLE, scalar=H5.H5S_SCALAR }
-      new._hid = H5.H5Screate(t[arg])
+      new._hid = H5.H5Screate(t[arg or 'simple'])
    elseif class(arg) == 'data set' then
       new._hid = H5.H5Dget_space(arg._hid)
+   elseif type(arg) == 'table' then
+      new._hid = H5.H5Screate(H5.H5S_SIMPLE)
+      new:set_extent(arg)
    else
-      error("DataSpace constructor argument not recognized")
+      error("DataSpace:constructor argument not understood")
    end
-   setmetatable(new, DataSpaceMeta)
+   if #new._hid < 0 then error("DataSpace:creation failed") end
    return new
 end
 
@@ -680,11 +715,8 @@ end
 
 local function test6()
    local file = hdf5.File("outfile.h5", "w")
-   local fspc = hdf5.DataSpace('simple')
-   local htyp = hdf5.DataType('double')
-   fspc:set_extent{4,4,8}
-
-   local dset = hdf5.DataSet(file, "data1d", fspc, htyp)
+   local dset = hdf5.DataSet(file, "data1d", "w",
+			     {shape={4,4,8}, dtype='double'})
    local buf = buffer.new_buffer(4*4*8*8)
    dset:write(buf)
 
@@ -731,6 +763,13 @@ local function test7()
 end
 
 
+local function test8()
+   local h5f = hdf5.File("outfile.h5", "w")
+   local h5d = hdf5.DataSet(h5f, "dataset", 'w',
+			    {dtype='double', shape={10,10}, chunk={5,5}})
+   h5f:close()
+end
+
 if ... then -- if __name__ == "__main__"
    return hdf5
 else
@@ -741,5 +780,6 @@ else
    test5()
    test6()
    test7()
+   test8()
    print(debug.getinfo(1).source, ": All tests passed")
 end
