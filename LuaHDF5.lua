@@ -279,6 +279,18 @@ end
 function DataSetClass:get_space()
    return hdf5.DataSpace(self)
 end
+function DataSetClass:get_chunk()
+   local dcpl = H5.H5Dget_create_plist(self._hid)
+   local rank = #self:get_space():get_extent()
+   local lchunk = { }
+   for i=1,rank do lchunk[i] = 0 end
+   local hchunk = H5.new_hsize_t_arr(lchunk)
+   local ret = H5.H5Pget_chunk(dcpl, rank, hchunk)
+   if ret < 0 then error('DataSet:get_chunk failed') end
+   H5.H5Pclose(dcpl)
+   for i=1,rank do lchunk[i] = hchunk[i-1] end
+   return lchunk
+end
 
 function DataSetClass:get_type()
    -----------------------------------------------------------------------------
@@ -761,13 +773,18 @@ local function test7()
    h5f:close()
 end
 
-
 local function test8()
    local h5f = hdf5.File("outfile.h5", "w")
    local h5d = hdf5.DataSet(h5f, "dataset", 'w',
-			    {dtype='double', shape={10,10}, chunk={5,5}})
+			    {dtype='double', shape={10,10}, chunk={5,10}})
+   h5f:close()
+   local h5f = hdf5.File("outfile.h5", "r")
+   local chunk = h5f["dataset"]:get_chunk()
+   assert(chunk[1] == 5)
+   assert(chunk[2] == 10)
    h5f:close()
 end
+
 
 if ... then -- if __name__ == "__main__"
    return hdf5
