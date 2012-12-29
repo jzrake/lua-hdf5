@@ -268,12 +268,11 @@ function DataSetClass:value()
    -----------------------------------------------------------------------------
    local space = self:get_space()
    local start = { }
-   local size = space:get_extent()
    local tstr = self:get_type():type_string()
    local tcls = self:get_type():type_class()
-   for i,v in ipairs(size) do start[i] = 0 end
    if tcls == 'string' then return tostring(self:read())
-   elseif tcls == 'float' then return array.view(self:read(), tstr, start, size)
+   elseif tcls == 'float' then return array.view(self:read(), tstr,
+						 space:get_extent())
    else error("DataSet:could not infer a Lua type from the data set")
    end
 end
@@ -337,7 +336,7 @@ function DataSetMeta:__index(slice)
       for i=1,rank do
 	 start[i] = 0
       end
-      return array.view(buf, htype:type_string(), start, count)
+      return array.view(buf, htype:type_string(), count)
    end
 end
 
@@ -720,7 +719,7 @@ local function test6()
    local buf = buffer.new_buffer(4*4*8*8)
    dset:write(buf)
 
-   local array = array.view(buf, 'double', {0,0,0}, {2,2,2}, {2,2,2})
+   local array = array.view(buf, 'double', {4,4,8}, {0,0,0}, {2,2,2}, {2,2,2})
    file["data3d"] = array
    file:close()
 
@@ -736,7 +735,7 @@ end
 
 local function test7()
    local buf = buffer.new_buffer(4*4*8 * array.sizeof('double'))
-   local my_data = array.view(buf, 'double', {0,0,0}, {4,4,8})
+   local my_data = array.view(buf, 'double', {4,4,8})
    local h5f = hdf5.File("outfile.h5", "w")
    h5f["dataset"] = my_data
    local group1 = h5f:require_group("group1")

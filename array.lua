@@ -33,14 +33,16 @@ function array.array(count, dtype)
 end
 
 
-function array.view(buf, dtype, start, count, stride)
+function array.view(buf, dtype, extent, start, count, stride)
    local sz =  array.sizeof(dtype)
-   local start = start or { 0 }
-   local count = count or { #buf/sz }
+   local start = start or { }
+   local count = count or { }
    local stride = stride or { }
    local block = { }
-   local rank = #start
+   local rank = #extent
    for i=1,rank do
+      start[i] = start[i] or 0
+      count[i] = count[i] or extent[i]
       stride[i] = stride[i] or 1
       block[i] = 1 -- non-trivial block not supported
    end
@@ -48,6 +50,7 @@ function array.view(buf, dtype, start, count, stride)
 		 _dtype=buffer[dtype],
 		 _dtype_string=dtype,
 		 _rank=rank,
+		 _extent=extent,
 		 _start=start,
 		 _count=count,
 		 _stride=stride,
@@ -59,12 +62,10 @@ function array.view(buf, dtype, start, count, stride)
       error("inconsistent sizes of extent description")
    end
 
-   local extent = { } -- equivalent global shape of the buffer
    local bsize = 1 -- buffer size spanned
    local vsize = 1 -- elements in view
 
    for i=1,rank do
-      extent[i] = start[i] + count[i] * stride[i]
       vsize = vsize * count[i]
       bsize = bsize * extent[i]
    end

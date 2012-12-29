@@ -23,10 +23,7 @@ array.set_typed(arr, 'double', 0, 1.5)
 assert(array.get_typed(arr, 'double', 0) == 1.5)
 
 local buf = buffer.new_buffer(100 * 8)
-local start = {0,0,0}
-local size = {10,5,2}
-
-local bv = array.view(buf, 'double', start, size)
+local bv = array.view(buf, 'double', {10,5,2})
 
 assert(#bv == 100)
 assert(bv._skip[1] == 10)
@@ -49,4 +46,3 @@ for i=0,9 do
 end
 
 print(debug.getinfo(1).source, ": All tests passed")
-
