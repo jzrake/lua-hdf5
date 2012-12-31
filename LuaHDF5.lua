@@ -795,7 +795,7 @@ end
 local function test8()
    local h5f = hdf5.File("outfile.h5", "w")
    local h5d = hdf5.DataSet(h5f, "dataset", 'w',
-			    {dtype='double', shape={10,10}, max={20,20},
+			    {dtype='double', shape={10,10}, max={20,H5.H5S_UNLIMITED},
 			     chunk={5,10}})
    h5f["dataset"]:set_extent{20,20}
    h5f:close()

@@ -103,7 +103,9 @@ static int _new_hsize_t_arr(lua_State *L)
 
   while (n < N) {
     lua_rawgeti(L, 1, n+1);
-    hs[n] = lua_tounsigned(L, -1);
+    hsize_t val = lua_tointeger(L, -1);
+    if (val == -1) val = H5S_UNLIMITED;
+    hs[n] = val;
     lua_pop(L, 1);
     ++n;
   }

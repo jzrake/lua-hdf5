@@ -195,7 +195,7 @@ def header_functions(prefix, outfile=None, byhand=[], extras=[], header=None,
 
 
 def header_data(pref1, outfile=None, regtype="number", linestart="define",
-                pref2=None, header=None, mpi=False):
+                pref2=None, header=None, mpi=False, byhand={}):
     if not header: header = "H5%spublic.h" % pref1
     f = open(hdf5_inc + '/' + header)
     if not pref2: pref2 = pref1
@@ -210,11 +210,13 @@ def header_data(pref1, outfile=None, regtype="number", linestart="define",
 
             if s != "H5_DLL" and s == s.upper():
                 if "MPI" not in s or mpi:
-                    if regtype == "number":
+                    if s in byhand:
+                        print 'by hand', s
+                        outfile.write("  REG_NUMBER2(%s,%d);\n" % (s, byhand[s]))
+                    elif regtype == "number":
                         outfile.write("  REG_NUMBER(%s);\n" % s)
                     elif regtype == "hid":
                         outfile.write("  REG_HID(%s);\n" % s)
-
 byhand = {
     "L": ["H5Literate"]
 }
@@ -242,6 +244,7 @@ if verbose: print '\t'+'\n\t'.join(FunctionPrototype.failed)
 # ----------------------------------------------------------
 wrap.write("static void register_constants(lua_State *L)\n{\n")
 wrap.write("#define REG_NUMBER(s) lua_pushnumber(L, s); lua_setfield(L, -2, #s)\n")
+wrap.write("#define REG_NUMBER2(s,t) lua_pushnumber(L, t); lua_setfield(L, -2, #s)\n")
 wrap.write("#define REG_HID(s) lh5_push_hid_t(L, s); lua_setfield(L, -2, #s)\n")
 wrap.write("  REG_HID(H5P_DEFAULT);\n")
 
@@ -249,7 +252,8 @@ header_data("", wrap, regtype="number", linestart="space")
 header_data("D", wrap, regtype="number", linestart="space")
 header_data("F", wrap, regtype="number", linestart="define")
 header_data("S", wrap, regtype="number", linestart="space")
-header_data("S", wrap, regtype="number", linestart="define")
+header_data("S", wrap, regtype="number", linestart="define",
+            byhand={'H5S_UNLIMITED': -1})
 header_data("T", wrap, regtype="hid", linestart="define")
 header_data("T", wrap, regtype="number", linestart="space")
 header_data("P", wrap, regtype="hid", linestart="define")
