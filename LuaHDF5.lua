@@ -281,6 +281,9 @@ function DataSetClass:get_space()
 end
 function DataSetClass:get_chunk()
    local dcpl = H5.H5Dget_create_plist(self._hid)
+   if H5.H5Pget_layout(dcpl) ~= H5.H5D_CHUNKED then
+      return false
+   end
    local rank = #self:get_space():get_extent()
    local lchunk = { }
    for i=1,rank do lchunk[i] = 0 end
@@ -783,6 +786,13 @@ local function test8()
    assert(chunk[1] == 5)
    assert(chunk[2] == 10)
    h5f:close()
+
+   local h5f = hdf5.File("outfile.h5", "w")
+   local h5d = hdf5.DataSet(h5f, "dataset", 'w', {dtype='double', shape={10,10}})
+   h5f:close()
+   local h5f = hdf5.File("outfile.h5", "r")
+   local chunk = h5f["dataset"]:get_chunk()
+   assert(not chunk)
 end
 
 

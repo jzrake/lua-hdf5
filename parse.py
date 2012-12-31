@@ -130,7 +130,9 @@ class FunctionPrototype(object):
             ret_statement = "lh5_push_herr_t(L, res);"
         elif self.ret_type == "htri_t":
             ret_statement = "lua_pushboolean(L, res);"
-        elif self.ret_type in ["ssize_t", "hssize_t", "size_t", "int", "H5T_class_t"]:
+        elif self.ret_type in ["ssize_t", "hssize_t", "size_t", "int",
+                               "H5T_class_t",
+                               "H5D_layout_t"]:
             ret_statement = "lua_pushnumber(L, res);"
         else:
             self.failed.append(self.func_name)
@@ -244,6 +246,7 @@ wrap.write("#define REG_HID(s) lh5_push_hid_t(L, s); lua_setfield(L, -2, #s)\n")
 wrap.write("  REG_HID(H5P_DEFAULT);\n")
 
 header_data("", wrap, regtype="number", linestart="space")
+header_data("D", wrap, regtype="number", linestart="space")
 header_data("F", wrap, regtype="number", linestart="define")
 header_data("S", wrap, regtype="number", linestart="space")
 header_data("T", wrap, regtype="hid", linestart="define")
