@@ -294,7 +294,20 @@ function DataSetClass:get_chunk()
    for i=1,rank do lchunk[i] = hchunk[i-1] end
    return lchunk
 end
-
+function DataSetClass:set_extent(extent)
+   if not self:get_chunk() then
+      error("DataSet:must be chunked to change its extent")
+   end
+   local rank = #self:get_space():get_extent()
+   if rank ~= #extent then
+      error("DataSet:new extent must match data set rank")
+   end
+   local hextent = H5.new_hsize_t_arr(extent)
+   local err = H5.H5Dset_extent(self._hid, hextent)
+   if #err < 0 then
+      error("DataSet:set_extent failed")
+   end
+end
 function DataSetClass:get_type()
    -----------------------------------------------------------------------------
    -- Return a DataType class representing the DataSet's HDF5 type.
@@ -478,12 +491,15 @@ end
 function DataSpaceClass:get_select_npoints()
    return H5.H5Sget_select_npoints(self._hid)
 end
-function DataSpaceClass:set_extent(extent)
+function DataSpaceClass:set_extent(extent, max)
    if self._hid == 0 then
       error("DataSpace:set_extent cannot operate on closed data space")
    end
+   if max and #extent ~= #max then
+      error("DataSpace:extent and max have different sizes")
+   end
    local current_size = H5.new_hsize_t_arr(extent)
-   local maximum_size = H5.new_hsize_t_arr(extent)
+   local maximum_size = H5.new_hsize_t_arr(max or extent)
    local err = H5.H5Sset_extent_simple(self._hid, #extent, current_size,
 				       maximum_size)
    if #err < 0 then error("DataSpace:set_extent") end
@@ -575,7 +591,7 @@ function hdf5.DataSet(parent, name, mode, opts)
    local mode = mode or "r+"
 
    if mode == "w" then
-      local space = hdf5.DataSpace(opts.shape)
+      local space = hdf5.DataSpace(opts.shape, opts.max)
       local dtype = hdf5.DataType(opts.dtype)
 
       if H5.H5Lexists(parent._hid, name, hp0) then
@@ -644,10 +660,10 @@ end
 --
 -- If `arg` is a string, then it must be either 'simple' or 'scalar' and a new
 -- data space is returned [default=simple]. If `arg` is a numeric table then a
--- new simple data space with that extent is returned. If `arg` is a data set
--- then its data space is returned.
+-- new simple data space with that extent (and maximum extent `max` if present)
+-- is returned. If `arg` is a data set then its data space is returned.
 --------------------------------------------------------------------------------
-function hdf5.DataSpace(arg)
+function hdf5.DataSpace(arg, max)
    local new = { _type='data space',
 		 _hid=0,
 		 _close=H5.H5Sclose }
@@ -661,7 +677,7 @@ function hdf5.DataSpace(arg)
       new._hid = H5.H5Dget_space(arg._hid)
    elseif type(arg) == 'table' then
       new._hid = H5.H5Screate(H5.H5S_SIMPLE)
-      new:set_extent(arg)
+      new:set_extent(arg, max)
    else
       error("DataSpace:constructor argument not understood")
    end
@@ -779,7 +795,9 @@ end
 local function test8()
    local h5f = hdf5.File("outfile.h5", "w")
    local h5d = hdf5.DataSet(h5f, "dataset", 'w',
-			    {dtype='double', shape={10,10}, chunk={5,10}})
+			    {dtype='double', shape={10,10}, max={20,20},
+			     chunk={5,10}})
+   h5f["dataset"]:set_extent{20,20}
    h5f:close()
    local h5f = hdf5.File("outfile.h5", "r")
    local chunk = h5f["dataset"]:get_chunk()
