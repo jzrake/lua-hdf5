@@ -211,7 +211,6 @@ def header_data(pref1, outfile=None, regtype="number", linestart="define",
             if s != "H5_DLL" and s == s.upper():
                 if "MPI" not in s or mpi:
                     if s in byhand:
-                        print 'by hand', s
                         outfile.write("  REG_NUMBER2(%s,%d);\n" % (s, byhand[s]))
                     elif regtype == "number":
                         outfile.write("  REG_NUMBER(%s);\n" % s)

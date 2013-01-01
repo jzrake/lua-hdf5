@@ -17,7 +17,7 @@ enum {
 // -----------------------------------------------------------------------------
 // buffer
 // -----------------------------------------------------------------------------
-static void buf_push_buffer(lua_State *L, const void *p, size_t size)
+static void *buf_push_buffer(lua_State *L, const void *p, size_t size)
 {
   void *newbuf = lua_newuserdata(L, size);
   if (newbuf == NULL) {
@@ -30,6 +30,7 @@ static void buf_push_buffer(lua_State *L, const void *p, size_t size)
     memset(newbuf, 0, size);
   }
   luaL_setmetatable(L, "buffer");
+  return newbuf;
 }
 static int buffer_new_buffer(lua_State *L)
 {
@@ -125,6 +126,94 @@ static int buffer_set_typed(lua_State *L)
   return 0;
 }
 
+static int buffer_light(lua_State *L)
+{
+  char *buf = luaL_checkudata(L, 1, "buffer");
+  lua_pushlightuserdata(L, buf);
+  return 1;
+}
+
+static int buffer_isbuffer(lua_State *L)
+{
+  lua_pushboolean(L, luaL_testudata(L, 1, "buffer") != NULL);
+  return 1;
+}
+
+static int buffer_extract(lua_State *L)
+/* -----------------------------------------------------------------------------
+ * Extracts a slice from B1, and returns it as the contiguous array 'B0'
+ * -----------------------------------------------------------------------------
+ * 1. @buf    : [buffer] a buffer instance (source)
+ * 2. @rank   : [unsigned int] dimensionality of buf
+ * 3. @byte   : [unsigned int] number of bytes at each element
+ * 4. @extent : [int*] buf size along each axis
+ * 5. @start  : [int*] starting indices into buf
+ * 6. @stride : [int*] number of elements to skip along each each axis
+ * 7. @count  : [int*] number of elements to select along each axis
+ *
+ * Returns
+ * 1. dst     : contiguous slice extracted from buf
+ * -----------------------------------------------------------------------------
+ */
+{
+  int d, M=0, m=0, ntot=1;
+
+  char *buf = (char*) luaL_checkudata(L, 1, "buffer");
+  unsigned int rank = luaL_checkunsigned(L, 2);
+  unsigned int byte = luaL_checkunsigned(L, 3);
+  int *exten = (int*) lua_touserdata(L, 4); luaL_checktype(L, 4, LUA_TUSERDATA);
+  int *start = (int*) lua_touserdata(L, 5); luaL_checktype(L, 5, LUA_TUSERDATA);
+  int *strid = (int*) lua_touserdata(L, 6); luaL_checktype(L, 6, LUA_TUSERDATA);
+  int *count = (int*) lua_touserdata(L, 7); luaL_checktype(L, 7, LUA_TUSERDATA);
+
+  for (d=0; d<rank; ++d) {
+    ntot *= count[d];
+  }
+  if (ntot > lua_rawlen(L, 1) / byte) {
+    luaL_error(L, "buffer: slice is to large for source buffer");
+  }
+  if (rank != lua_rawlen(L, 4) / sizeof(int) ||
+      rank != lua_rawlen(L, 5) / sizeof(int) ||
+      rank != lua_rawlen(L, 6) / sizeof(int) ||
+      rank != lua_rawlen(L, 7) / sizeof(int)) {
+    luaL_error(L, "buffer: slice description has wrong size");
+  }
+
+  int *J = (int*) malloc(rank * sizeof(int)); // current indices into buffer
+  int *N = (int*) malloc(rank * sizeof(int)); // number of elements to select
+  int *S = (int*) malloc(rank * sizeof(int)); // skips along each axis
+  char *dst = (char*) buf_push_buffer(L, NULL, ntot * byte); // destination
+
+  for (d=0; d<rank; ++d) {
+    J[d] = 0;
+    N[d] = count[d];
+  }
+  S[rank-1] = 1;
+  for (d=rank-2; d>=0; --d) {
+    S[d] = S[d+1] * exten[d+1];
+  }
+  while (J[0] < N[0]) {
+    M = 0;
+    for (d=0; d<rank; ++d) {
+      M += (J[d] * strid[d] + start[d]) * S[d];
+    }
+    memcpy(dst + (m++)*byte, buf + M*byte, byte);
+    ++J[rank-1];
+    for (d=rank-1; d!=0; --d) {
+      if (J[d] == N[d]) {
+	J[d] = 0;
+	++J[d-1];
+      }
+    }
+  }
+
+  free(J);
+  free(N);
+  free(S);
+  return 1;
+}
+
+
 static int buffer__index(lua_State *L)
 {
   const char *buf = luaL_checkudata(L, 1, "buffer");
@@ -171,8 +260,11 @@ int luaopen_buffer(lua_State *L)
   luaL_Reg buffer_types[] = {
     {"new_buffer", buffer_new_buffer},
     {"sizeof", buffer_sizeof},
+    {"light", buffer_light},
     {"get_typed", buffer_get_typed},
     {"set_typed", buffer_set_typed},
+    {"extract", buffer_extract},
+    {"isbuffer", buffer_isbuffer},
     {NULL, NULL}};
 
   luaL_Reg buffer_meta[] = {
