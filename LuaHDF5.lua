@@ -10,51 +10,38 @@ local hdf5 = { } -- module table
 local H5 = require 'HDF5'
 local buffer = require 'buffer'
 local array = require 'array'
+local oo = require 'class'
 local hp0 = H5.H5P_DEFAULT
 
+local Base      = oo.class('HDF5_BaseClass')
+local Indexable = oo.class('HDF5_BaseClass', Base)
 
---------------------------------------------------------------------------------
--- Utility functions
---------------------------------------------------------------------------------
-local function printf(...)
-   print(string.format(...))
-end
+hdf5.File      = oo.class('File', Indexable)
+hdf5.Group     = oo.class('Group', Indexable)
+hdf5.DataSet   = oo.class('DataSet', Base)
+hdf5.DataSpace = oo.class('DataSpace', Base)
+hdf5.DataType  = oo.class('DataType', Base)
 
-local function inherit_from(base, derived)
-   -- Basically just deep-copy the base class table --
-   local new = derived or { }
-   for k,v in pairs(base) do new[k] = v end
-   return new
-end
-local function class(object)
-   if type(object) == 'table' then
-      return object._type
-   else
-      return nil
-   end
-end
 
 
 --------------------------------------------------------------------------------
 -- Base classes for meta-table and methods wrapping hid_t objects
 --------------------------------------------------------------------------------
-local BaseMeta = { }
-function BaseMeta:__index()
+
+function Base:__index__()
    if self._hid == 0 then -- object is closed
       return nil
    end
 end
-function BaseMeta:__newindex()
+function Base:__newindex__()
    if self._hid == 0 then -- object is closed
       error("cannot assign to closed object")
    end
 end
-function BaseMeta:__gc()
+function Base:__gc__()
    self:close()
 end
-
-local BaseClass = { }
-function BaseClass:close()
+function Base:close()
    if self._open_objects then
       for k,v in pairs(self._open_objects) do
 	 v:close()
@@ -74,17 +61,17 @@ end
 
 
 --------------------------------------------------------------------------------
--- IndexableClass methods
+-- Indexable methods
 --------------------------------------------------------------------------------
-local IndexableClass = inherit_from(BaseClass)
-function IndexableClass:path(key)
+function Indexable:path(key)
    if not self._parent then
       return '/' .. self._name
    else
       return self._parent:path() .. '/' .. self._name
    end
 end
-function IndexableClass:keys()
+
+function Indexable:keys()
    local link_names = { }
    local function f(name)
       table.insert(link_names, name)
@@ -93,21 +80,17 @@ function IndexableClass:keys()
    H5.H5Literate(self._hid, H5.H5_INDEX_NAME, H5.H5_ITER_NATIVE, idx, f)
    return link_names
 end
-function IndexableClass:require_group(name)
+
+function Indexable:require_group(name)
    return hdf5.Group(self, name)
 end
 
-
---------------------------------------------------------------------------------
--- IndexableMeta methods
---------------------------------------------------------------------------------
-local IndexableMeta = inherit_from(BaseMeta)
-function IndexableMeta:__index(key)
-   if self._hid == 0 then -- object is closed
+function Indexable:__index__(key)
+   if self.__dict__._hid == 0 then -- object is closed
       return nil
    end
-   if self._open_objects[key] then
-      return self._open_objects[key]
+   if rawget(self, '__dict__')._open_objects[key] then
+      return rawget(self, '__dict__')._open_objects[key]
    end
    if not H5.H5Lexists(self._hid, key, hp0) then
       return nil
@@ -122,7 +105,8 @@ function IndexableMeta:__index(key)
       error("Indexable:object %s/%s has an unsupported type", self._name, key)
    end
 end
-function IndexableMeta:__newindex(key, value)
+
+function Indexable:__newindex__(key, value)
    if self._hid == 0 then -- object is closed
       error("Indexable:cannot assign to closed object")
    end
@@ -157,7 +141,7 @@ function IndexableMeta:__newindex(key, value)
       error("DataSet:unrecognized type for writing")
    end
 end
-function IndexableMeta:__pairs()
+function Indexable:__pairs__()
    local p = { }
    for k,v in pairs(self:keys()) do
       p[v] = self[v]
@@ -169,10 +153,7 @@ end
 --------------------------------------------------------------------------------
 -- HDF5 File class methods
 --------------------------------------------------------------------------------
-local FileClass = inherit_from(IndexableClass)
-
-local FileMeta = inherit_from(IndexableMeta)
-function FileMeta:__tostring()
+function hdf5.File:__tostring__()
    if self._hid ~= 0 then
       return string.format("<HDF5 file: \"%s\" (mode %s)>", self._name,
 			   self._mode)
@@ -185,10 +166,7 @@ end
 --------------------------------------------------------------------------------
 -- HDF5 Group class methods
 --------------------------------------------------------------------------------
-local GroupClass = inherit_from(IndexableClass)
-
-local GroupMeta = inherit_from(IndexableMeta)
-function GroupMeta:__tostring()
+function hdf5.Group:__tostring__()
    if self._hid ~= 0 then
       return string.format("<HDF5 group: \"%s\">", self._name)
    else
@@ -200,9 +178,7 @@ end
 --------------------------------------------------------------------------------
 -- HDF5 DataSet class methods
 --------------------------------------------------------------------------------
-local DataSetClass = inherit_from(BaseClass)
-
-function DataSetClass:write(buf)
+function hdf5.DataSet:write(buf)
    local spc = H5.H5Dget_space(self._hid)
    local typ = H5.H5Dget_type(self._hid)
    local siz = H5.H5Tget_size(typ)
@@ -214,7 +190,7 @@ function DataSetClass:write(buf)
    H5.H5Tclose(typ)
 end
 
-function DataSetClass:read()
+function hdf5.DataSet:read()
    -----------------------------------------------------------------------------
    -- Read all internal data into an un-typed data buffer. Always works.
    -----------------------------------------------------------------------------
@@ -229,7 +205,7 @@ function DataSetClass:read()
    return buf
 end
 
-function DataSetClass:read_selection(mspace, fspace, buf)
+function hdf5.DataSet:read_selection(mspace, fspace, buf)
    -----------------------------------------------------------------------------
    -- Read from the data set into `buf` according to source `fspace` and
    -- destination `mspace`. `fspace` defaults to the whole file space extent.
@@ -245,7 +221,7 @@ function DataSetClass:read_selection(mspace, fspace, buf)
    if #err < 0 then error("DataSet:read_selection") end
 end
 
-function DataSetClass:write_selection(mspace, fspace, buf)
+function hdf5.DataSet:write_selection(mspace, fspace, buf)
    -----------------------------------------------------------------------------
    -- Write from `buf` into the data set according to destination `fspace` and
    -- source `mspace`. `fspace` defaults to the whole file space extent.
@@ -261,7 +237,7 @@ function DataSetClass:write_selection(mspace, fspace, buf)
    if #err < 0 then error("DataSet:write_selection") end
 end
 
-function DataSetClass:value()
+function hdf5.DataSet:value()
    -----------------------------------------------------------------------------
    -- Read internal data into an object whose Lua type is inferred from the HDF5
    -- type. Might throw an error if it can't find an appropriate Lua type.
@@ -276,10 +252,12 @@ function DataSetClass:value()
    else error("DataSet:could not infer a Lua type from the data set")
    end
 end
-function DataSetClass:get_space()
+
+function hdf5.DataSet:get_space()
    return hdf5.DataSpace(self)
 end
-function DataSetClass:get_chunk()
+
+function hdf5.DataSet:get_chunk()
    local dcpl = H5.H5Dget_create_plist(self._hid)
    if H5.H5Pget_layout(dcpl) ~= H5.H5D_CHUNKED then
       return false
@@ -294,7 +272,8 @@ function DataSetClass:get_chunk()
    for i=1,rank do lchunk[i] = hchunk[i-1] end
    return lchunk
 end
-function DataSetClass:set_extent(extent)
+
+function hdf5.DataSet:set_extent(extent)
    if not self:get_chunk() then
       error("DataSet:must be chunked to change its extent")
    end
@@ -308,7 +287,8 @@ function DataSetClass:set_extent(extent)
       error("DataSet:set_extent failed")
    end
 end
-function DataSetClass:get_type()
+
+function hdf5.DataSet:get_type()
    -----------------------------------------------------------------------------
    -- Return a DataType class representing the DataSet's HDF5 type.
    -----------------------------------------------------------------------------
@@ -318,19 +298,19 @@ function DataSetClass:get_type()
    return ret
 end
 
-local DataSetMeta = inherit_from(BaseMeta)
-function DataSetMeta:__tostring()
+function hdf5.DataSet:__tostring__()
    if self._hid ~= 0 then
       return string.format("<HDF5 data set: \"%s\">", self._name)
    else
       return "<Closed HDF5 data set>"
    end
 end
-function DataSetMeta:__index(slice)
+
+function hdf5.DataSet:__index__(slice)
    if self._hid == 0 then
       return nil
    elseif type(slice) == 'string' then
-      return BaseMeta.__index(self, slice)
+      return Base.__index__(self, slice)
    elseif type(slice) == 'table' then
       local htype = self:get_type()
       if htype:type_class() ~= 'float' then
@@ -368,7 +348,7 @@ function DataSetMeta:__index(slice)
    end
 end
 
-function DataSetMeta:__newindex(slice, value)
+function hdf5.DataSet:__newindex__(slice, value)
    --------------------------------------------------------------------------
    -- The variables `slice` and `value` must conform to:
    --
@@ -382,7 +362,7 @@ function DataSetMeta:__newindex(slice, value)
       error("DataSet:cannot write to closed data set")
 
    elseif type(slice) == 'string' then
-      return BaseMeta.__index(self, slice)
+      return Base.__index__(self, slice)
 
    elseif type(slice) == 'table' then
       local htype = self:get_type()
@@ -424,14 +404,15 @@ end
 --------------------------------------------------------------------------------
 -- HDF5 DataType class methods
 --------------------------------------------------------------------------------
-local DataTypeClass = inherit_from(BaseClass)
-function DataTypeClass:get_size()
+function hdf5.DataType:get_size()
    return H5.H5Tget_size(self._hid)
 end
-function DataTypeClass:set_size(size)
+
+function hdf5.DataType:set_size(size)
    return H5.H5Tset_size(self._hid, size)
 end
-function DataTypeClass:type_string()
+
+function hdf5.DataType:type_string()
    local htyp = self._hid
    local tcls = H5.H5Tget_class(htyp)
    if tcls == H5.H5T_STRING then return 'string'
@@ -442,7 +423,8 @@ function DataTypeClass:type_string()
    else return nil
    end
 end
-function DataTypeClass:type_class()
+
+function hdf5.DataType:type_class()
    return ({[H5.H5T_INTEGER]='int',
 	    [H5.H5T_FLOAT]='float',
 	    [H5.H5T_STRING]='string',
@@ -454,8 +436,8 @@ function DataTypeClass:type_class()
 	    [H5.H5T_VLEN]='vlen',
 	    [H5.H5T_ARRAY]='array'})[H5.H5Tget_class(self._hid)]
 end
-local DataTypeMeta = inherit_from(BaseMeta)
-function DataTypeMeta:__tostring()
+
+function hdf5.DataType:__tostring__()
    if self._hid ~= 0 then
       return string.format("<HDF5 data type: \"%s\">", self._name)
    else
@@ -467,8 +449,7 @@ end
 --------------------------------------------------------------------------------
 -- HDF5 DataSpace class methods
 --------------------------------------------------------------------------------
-local DataSpaceClass = inherit_from(BaseClass)
-function DataSpaceClass:get_extent(what)
+function hdf5.DataSpace:get_extent(what)
    if self._hid == 0 then
       error("DataSpace:get_extent cannot operate on closed data space")
    end
@@ -488,10 +469,12 @@ function DataSpaceClass:get_extent(what)
    end
    return ({current=csize, maximum=msize})[what] or csize
 end
-function DataSpaceClass:get_select_npoints()
+
+function hdf5.DataSpace:get_select_npoints()
    return H5.H5Sget_select_npoints(self._hid)
 end
-function DataSpaceClass:set_extent(extent, max)
+
+function hdf5.DataSpace:set_extent(extent, max)
    if self._hid == 0 then
       error("DataSpace:set_extent cannot operate on closed data space")
    end
@@ -504,7 +487,8 @@ function DataSpaceClass:set_extent(extent, max)
 				       maximum_size)
    if #err < 0 then error("DataSpace:set_extent") end
 end
-function DataSpaceClass:select_hyperslab(start, stride, count, block)
+
+function hdf5.DataSpace:select_hyperslab(start, stride, count, block)
    if self._hid == 0 then
       error("DataSpace:select_hyperslab cannot operate on closed data space")
    end
@@ -516,8 +500,8 @@ function DataSpaceClass:select_hyperslab(start, stride, count, block)
 				      hstride, hcount, hblock)
    if #err < 0 then error("DataSpace:select_hyperslab") end
 end
-local DataSpaceMeta = inherit_from(BaseMeta)
-function DataSpaceMeta:__tostring()
+
+function hdf5.DataSpace:__tostring__()
    if self._hid ~= 0 then
       return string.format("<HDF5 data space: [%s]>",
 			   table.concat(self:get_extent(), " "))
@@ -530,62 +514,55 @@ end
 --------------------------------------------------------------------------------
 -- HDF5 File constructor
 --------------------------------------------------------------------------------
-function hdf5.File(name, mode)
-   local new = { _type='file',
-		 _name=name,
-		 _mode=mode,
-		 _hid=0,
-		 _close=H5.H5Fclose,
-		 _open_objects={ } }
-   inherit_from(FileClass, new)
-   setmetatable(new, FileMeta)
+function hdf5.File:__init__(name, mode)
+   self._type='file'
+   self._name = name
+   self._mode = mode
+   self._hid = 0
+   self._close = H5.H5Fclose
+   self._open_objects = { }
 
    if mode == "w" then
-      new._hid = H5.H5Fcreate(name, H5.H5F_ACC_TRUNC, hp0, hp0)
+      self._hid = H5.H5Fcreate(name, H5.H5F_ACC_TRUNC, hp0, hp0)
    elseif mode == "r" then
-      new._hid = H5.H5Fopen(name, H5.H5F_ACC_RDONLY, hp0)
+      self._hid = H5.H5Fopen(name, H5.H5F_ACC_RDONLY, hp0)
    elseif mode == "r+" then
-      new._hid = H5.H5Fopen(name, H5.H5F_ACC_RDWR, hp0)
+      self._hid = H5.H5Fopen(name, H5.H5F_ACC_RDWR, hp0)
    else
       error("File:mode must be one of [w, r, r+]")
    end
-   return new
 end
 
 
 --------------------------------------------------------------------------------
 -- HDF5 Group constructor
 --------------------------------------------------------------------------------
-function hdf5.Group(parent, name)
-   local new = { _type='group',
-		 _parent=parent,
-		 _name=name,
-		 _hid=0,
-		 _close=H5.H5Gclose,
-		 _open_objects={ } }
-   inherit_from(GroupClass, new)
-   setmetatable(new, GroupMeta)
+function hdf5.Group:__init__(parent, name)
+   self._type='group'
+   self._parent = parent
+   self._name = name
+   self._hid = 0
+   self._close = H5.H5Gclose
+   self._open_objects = { }
+
    if not H5.H5Lexists(parent._hid, name, hp0) then
-      new._hid = H5.H5Gcreate2(parent._hid, name, hp0, hp0, hp0)
+      self._hid = H5.H5Gcreate2(parent._hid, name, hp0, hp0, hp0)
    else
-      new._hid = H5.H5Gopen2(parent._hid, name, hp0)
+      self._hid = H5.H5Gopen2(parent._hid, name, hp0)
    end
-   parent._open_objects[name] = new
-   return new
+   parent._open_objects[name] = self
 end
 
 
 --------------------------------------------------------------------------------
 -- HDF5 DataSet constructor
 --------------------------------------------------------------------------------
-function hdf5.DataSet(parent, name, mode, opts)
-   local new = { _type='data set',
-		 _parent=parent,
-		 _name=name,
-		 _hid=0,
-		 _close=H5.H5Dclose }
-   inherit_from(DataSetClass, new)
-   setmetatable(new, DataSetMeta)
+function hdf5.DataSet:__init__(parent, name, mode, opts)
+   self._type = 'data set'
+   self._parent = parent
+   self._name = name
+   self._hid = 0
+   self._close = H5.H5Dclose
 
    local opts = opts or { }
    local mode = mode or "r+"
@@ -604,27 +581,26 @@ function hdf5.DataSet(parent, name, mode, opts)
       end
       local dcpl = H5.H5Pcreate(H5.H5P_DATASET_CREATE)
       if opts.chunk then
-       	 local c = H5.new_hsize_t_arr(opts.chunk)
+       	 local c = H5.self_hsize_t_arr(opts.chunk)
        	 local err = H5.H5Pset_chunk(dcpl, #opts.chunk, c)
 	 if #err < 0 then error("DataSet:could not set chunk") end
       end
-      new._hid = H5.H5Dcreate2(parent._hid, name, dtype._hid, space._hid, hp0,
+      self._hid = H5.H5Dcreate2(parent._hid, name, dtype._hid, space._hid, hp0,
       			       dcpl, hp0)
       H5.H5Pclose(dcpl)
    elseif mode == "r+" then
       if not H5.H5Lexists(parent._hid, name, hp0) then
 	 error("DataSet:cannot open data set for reading")
       end
-      new._hid = H5.H5Dopen2(parent._hid, name, hp0)
+      self._hid = H5.H5Dopen2(parent._hid, name, hp0)
    else
       error("DataSet:mode must be one of [w, r+]")
    end
 
-   if #new._hid < 0 then
+   if #self._hid < 0 then
       error("DataSet:error opening or creating data set")
    end
-   parent._open_objects[name] = new
-   return new
+   parent._open_objects[name] = self
 end
 
 
@@ -635,23 +611,20 @@ end
 -- H5Tcopy. If `arg` is a string, then it must be a valid key into the variable
 -- typedict. Opening existing types from data sets is done by the DataSet class.
 --------------------------------------------------------------------------------
-function hdf5.DataType(typeid)
-   local new = { _type='data type',
-		 _hid=0,
-		 _close=H5.H5Tclose }
-   inherit_from(DataTypeClass, new)
-   setmetatable(new, DataTypeMeta)
+function hdf5.DataType:__init__(typeid)
+   self._type = 'data type'
+   self._hid = 0
+   self._close = H5.H5Tclose
 
    local typedict = {char=H5.H5T_NATIVE_CHAR,
 		     int=H5.H5T_NATIVE_INT,
 		     float=H5.H5T_NATIVE_FLOAT,
 		     double=H5.H5T_NATIVE_DOUBLE}
    if type(typeid) == 'string' then
-      new._hid = H5.H5Tcopy(typedict[typeid])
+      self._hid = H5.H5Tcopy(typedict[typeid])
    else
-      new._hid = H5.H5Tcopy(typeid)
+      self._hid = H5.H5Tcopy(typeid)
    end
-   return new
 end
 
 
@@ -663,26 +636,23 @@ end
 -- new simple data space with that extent (and maximum extent `max` if present)
 -- is returned. If `arg` is a data set then its data space is returned.
 --------------------------------------------------------------------------------
-function hdf5.DataSpace(arg, max)
-   local new = { _type='data space',
-		 _hid=0,
-		 _close=H5.H5Sclose }
-   inherit_from(DataSpaceClass, new)
-   setmetatable(new, DataSpaceMeta)
+function hdf5.DataSpace:__init__(arg, max)
+   self._type = 'data space'
+   self._hid = 0
+   self._close = H5.H5Sclose
 
    if not arg or type(arg) == 'string' then
       local t = { simple=H5.H5S_SIMPLE, scalar=H5.H5S_SCALAR }
-      new._hid = H5.H5Screate(t[arg or 'simple'])
+      self._hid = H5.H5Screate(t[arg or 'simple'])
    elseif class(arg) == 'data set' then
-      new._hid = H5.H5Dget_space(arg._hid)
+      self._hid = H5.H5Dget_space(arg._hid)
    elseif type(arg) == 'table' then
-      new._hid = H5.H5Screate(H5.H5S_SIMPLE)
-      new:set_extent(arg, max)
+      self._hid = H5.H5Screate(H5.H5S_SIMPLE)
+      self:set_extent(arg, max)
    else
       error("DataSpace:constructor argument not understood")
    end
-   if #new._hid < 0 then error("DataSpace:creation failed") end
-   return new
+   if #self._hid < 0 then error("DataSpace:creation failed") end
 end
 
 
