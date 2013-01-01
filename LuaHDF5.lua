@@ -637,14 +637,14 @@ end
 -- is returned. If `arg` is a data set then its data space is returned.
 --------------------------------------------------------------------------------
 function hdf5.DataSpace:__init__(arg, max)
-   self._type = 'data space'
-   self._hid = 0
-   self._close = H5.H5Sclose
+   oo.setattrib(self, '_type', 'data space')
+   oo.setattrib(self, '_hid', 0)
+   oo.setattrib(self, '_close', H5.H5Sclose)
 
    if not arg or type(arg) == 'string' then
       local t = { simple=H5.H5S_SIMPLE, scalar=H5.H5S_SCALAR }
       self._hid = H5.H5Screate(t[arg or 'simple'])
-   elseif class(arg) == 'data set' then
+   elseif arg._type == 'data set' then
       self._hid = H5.H5Dget_space(arg._hid)
    elseif type(arg) == 'table' then
       self._hid = H5.H5Screate(H5.H5S_SIMPLE)
@@ -786,6 +786,8 @@ end
 
 if ... then -- if __name__ == "__main__"
    return hdf5
+elseif true then
+   hdf5.DataSpace({10,10})
 else
    test1()
    test2()
