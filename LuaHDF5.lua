@@ -86,7 +86,7 @@ function Indexable:require_group(name)
 end
 
 function Indexable:__index__(key)
-   if self.__dict__._hid == 0 then -- object is closed
+   if self._hid == 0 then -- object is closed
       return nil
    end
    if rawget(self, '__dict__')._open_objects[key] then
@@ -309,8 +309,6 @@ end
 function hdf5.DataSet:__index__(slice)
    if self._hid == 0 then
       return nil
-   elseif type(slice) == 'string' then
-      return Base.__index__(self, slice)
    elseif type(slice) == 'table' then
       local htype = self:get_type()
       if htype:type_class() ~= 'float' then
@@ -519,7 +517,7 @@ function hdf5.File:__init__(name, mode)
    oo.setattrib(self, '_name', name)
    oo.setattrib(self, '_type', 'file')
    oo.setattrib(self, '_hid', 0)
-   oo.setattrib(self, '_close', H5.H5Gclose)
+   oo.setattrib(self, '_close', H5.H5Fclose)
    oo.setattrib(self, '_open_objects', { })
 
    if mode == "w" then
@@ -581,7 +579,7 @@ function hdf5.DataSet:__init__(parent, name, mode, opts)
       end
       local dcpl = H5.H5Pcreate(H5.H5P_DATASET_CREATE)
       if opts.chunk then
-       	 local c = H5.self_hsize_t_arr(opts.chunk)
+       	 local c = H5.new_hsize_t_arr(opts.chunk)
        	 local err = H5.H5Pset_chunk(dcpl, #opts.chunk, c)
 	 if #err < 0 then error("DataSet:could not set chunk") end
       end
@@ -786,9 +784,6 @@ end
 
 if ... then -- if __name__ == "__main__"
    return hdf5
-elseif true then
-   local s = hdf5.File("outfile.h5", 'r')
-   s:close()
 else
    test1()
    test2()

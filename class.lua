@@ -32,17 +32,19 @@ local class_module = { }
 --------------------------------------------------------------------------------
 -- Private utility functions
 --------------------------------------------------------------------------------
-local function rawresolve(key, ...)
-   local table_list = {...}
-   for i,t in pairs(table_list) do
-      for j,b in ipairs(t) do
-         local val = b.__dict__[key]
-         if val then return val end
-      end
+local function resolve(obj, key)
+   -- 
+   -- Attempt to resolve attribute `key` of `obj` which may be a class or
+   -- instance. Recurse through __base__ table depth-first, and return nil if
+   -- attribute is not found. Do not invoke the __index__ meta-method in doing
+   -- so.
+   -- 
+   local val = obj.__dict__[key] or obj.__class__.__dict__[key]
+   if val then return val end
+   for i,b in ipairs(obj.__base__) do
+      local val = resolve(b, key)
+      if val then return val end
    end
-end
-local function instresolve(self, key)
-   return rawresolve(key, {self.__class__, self}, self.__class__.__base__)
 end
 
 --------------------------------------------------------------------------------
@@ -59,9 +61,9 @@ local function classname(A)
 end
 local function super(instance, base)
    if not base then
-      return instance.__class__.__base__[1]()
+      return instance.__base__[1]()
    else
-      for i,v in ipairs(instance.__class__.__base__) do
+      for i,v in ipairs(instance.__base__) do
          if v == base then
             local proxy = v()
             rawset(proxy, '__dict__', instance.__dict__)
@@ -78,7 +80,7 @@ local function setattrib(instance, key, value)
    instance.__dict__[key] = value
 end
 local function getattrib(instance, key)
-   return instresolve(instance, key)
+   return resolve(instance, key)
 end
 local function class(name, ...)
    local base = {...}
@@ -87,7 +89,8 @@ local function class(name, ...)
    end
    return setmetatable({__name__=name,
                         __base__=base,
-                        __dict__={ }}, class_meta)
+                        __dict__={ },
+			__class__={__dict__={ }}}, class_meta)
 end
 
 --------------------------------------------------------------------------------
@@ -99,14 +102,15 @@ function class_meta:__call(...)
    for k,v in pairs(self.__base__) do base[k] = v end
    local new = setmetatable({__name__=self.__name__,
                              __dict__=dict,
-                             __class__=self}, instance_meta)
+                             __class__=self,
+			     __base__=self.__base__}, instance_meta)
    if getattrib(new, '__init__') then
       getattrib(new, '__init__')(new, ...)
    end
    return new
 end
 function class_meta:__index(key)
-   return rawresolve(key, {self}, self.__base__)
+   return resolve(key, {self}, self.__base__)
 end
 function class_meta:__newindex(key, value)
    self.__dict__[key] = value
@@ -120,28 +124,27 @@ end
 -- Instance metatable
 --------------------------------------------------------------------------------
 function instance_meta:__index(key)
-   local index = instresolve(self, '__index__')
-   local def = instresolve(self, key)
+   local index = resolve(self, '__index__')
+   local def = resolve(self, key)
    if type(index) == 'function' then return def or index(self, key)
    else return def or index[key]
    end
 end
 function instance_meta:__newindex(key, value)
-   local newindex = instresolve(self, '__newindex__')
    if self.__dict__[key] then
       self.__dict__[key] = value
    else
-      newindex(self, key, value)
+      resolve(self, '__newindex__')(self, key, value)
    end
 end
 function instance_meta:__tostring()
-   return instresolve(self, '__tostring__')(self)
+   return resolve(self, '__tostring__')(self)
 end
 function instance_meta:__pairs()
-   return instresolve(self, '__pairs__')(self)
+   return resolve(self, '__pairs__')(self)
 end
 function instance_meta:__gc()
-   return instresolve(self, '__gc__')(self)
+   return resolve(self, '__gc__')(self)
 end
 
 --------------------------------------------------------------------------------
@@ -149,7 +152,7 @@ end
 --------------------------------------------------------------------------------
 local object = class('object')
 function object:__index__(key)
-   return instresolve(self, key)
+   return resolve(self, key)
 end
 function object:__newindex__(key)
    self.__dict__[key] = value
