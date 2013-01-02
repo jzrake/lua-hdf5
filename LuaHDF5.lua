@@ -515,12 +515,12 @@ end
 -- HDF5 File constructor
 --------------------------------------------------------------------------------
 function hdf5.File:__init__(name, mode)
-   self._type='file'
-   self._name = name
-   self._mode = mode
-   self._hid = 0
-   self._close = H5.H5Fclose
-   self._open_objects = { }
+   oo.setattrib(self, '_parent', parent)
+   oo.setattrib(self, '_name', name)
+   oo.setattrib(self, '_type', 'file')
+   oo.setattrib(self, '_hid', 0)
+   oo.setattrib(self, '_close', H5.H5Gclose)
+   oo.setattrib(self, '_open_objects', { })
 
    if mode == "w" then
       self._hid = H5.H5Fcreate(name, H5.H5F_ACC_TRUNC, hp0, hp0)
@@ -538,12 +538,12 @@ end
 -- HDF5 Group constructor
 --------------------------------------------------------------------------------
 function hdf5.Group:__init__(parent, name)
-   self._type='group'
-   self._parent = parent
-   self._name = name
-   self._hid = 0
-   self._close = H5.H5Gclose
-   self._open_objects = { }
+   oo.setattrib(self, '_parent', parent)
+   oo.setattrib(self, '_name', name)
+   oo.setattrib(self, '_type', 'group')
+   oo.setattrib(self, '_hid', 0)
+   oo.setattrib(self, '_close', H5.H5Gclose)
+   oo.setattrib(self, '_open_objects', { })
 
    if not H5.H5Lexists(parent._hid, name, hp0) then
       self._hid = H5.H5Gcreate2(parent._hid, name, hp0, hp0, hp0)
@@ -558,11 +558,11 @@ end
 -- HDF5 DataSet constructor
 --------------------------------------------------------------------------------
 function hdf5.DataSet:__init__(parent, name, mode, opts)
-   self._type = 'data set'
-   self._parent = parent
-   self._name = name
-   self._hid = 0
-   self._close = H5.H5Dclose
+   oo.setattrib(self, '_parent', parent)
+   oo.setattrib(self, '_name', name)
+   oo.setattrib(self, '_type', 'data set')
+   oo.setattrib(self, '_hid', 0)
+   oo.setattrib(self, '_close', H5.H5Dclose)
 
    local opts = opts or { }
    local mode = mode or "r+"
@@ -612,9 +612,9 @@ end
 -- typedict. Opening existing types from data sets is done by the DataSet class.
 --------------------------------------------------------------------------------
 function hdf5.DataType:__init__(typeid)
-   self._type = 'data type'
-   self._hid = 0
-   self._close = H5.H5Tclose
+   oo.setattrib(self, '_type', 'data type')
+   oo.setattrib(self, '_hid', 0)
+   oo.setattrib(self, '_close', H5.H5Tclose)
 
    local typedict = {char=H5.H5T_NATIVE_CHAR,
 		     int=H5.H5T_NATIVE_INT,
@@ -787,7 +787,8 @@ end
 if ... then -- if __name__ == "__main__"
    return hdf5
 elseif true then
-   hdf5.DataSpace({10,10})
+   local s = hdf5.File("outfile.h5", 'r')
+   s:close()
 else
    test1()
    test2()
