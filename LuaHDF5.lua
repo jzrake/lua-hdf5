@@ -811,6 +811,7 @@ local function test8()
    local h5f = hdf5.File("outfile.h5", "r")
    local chunk = h5f["dataset"]:get_chunk()
    assert(not chunk)
+   h5f:close()
 end
 
 
