@@ -39,8 +39,10 @@ local function set_mpio_modes(dxpl, mpio)
    -- 
    -- For HDF5/MPIO only. Call will simply have no result without parallel HDF5
    -- support. On HDF5 versions < 1.8.10, the [global/local]_no_collective_cause
-   -- variables will not be evaluated.
+   -- variables will not be evaluated. On HDF5 versions less than 1.8.8 none of
+   -- these functions work.
    -- 
+   if not H5.H5_VERSION_GE(1,8,8) then return end
    local Lcause, Gcause = H5.H5Pget_mpio_no_collective_cause(dxpl)
    local L = { }
    local G = { }

@@ -158,6 +158,31 @@ static int _hsize_t_arr__newindex(lua_State *L)
 // -----------------------------------------------------------------------------
 // By-hand wrappers
 // -----------------------------------------------------------------------------
+
+static int _H5_VERSION_GE(lua_State *L)
+{
+  int Maj = luaL_checkinteger(L, 1);
+  int Min = luaL_checkinteger(L, 2);
+  int Rel = luaL_checkinteger(L, 3);
+  lua_pushboolean(L, H5_VERSION_GE(Maj,Min,Rel));
+  return 1;
+}
+
+static int _H5_VERSION_LE(lua_State *L)
+{
+  int Maj = luaL_checkinteger(L, 1);
+  int Min = luaL_checkinteger(L, 2);
+  int Rel = luaL_checkinteger(L, 3);
+  lua_pushboolean(L, H5_VERSION_LE(Maj,Min,Rel));
+  return 1;
+}
+
+static int _H5_VERS_INFO(lua_State *L)
+{
+  lua_pushstring(L, H5_VERS_INFO);
+  return 1;
+}
+
 static herr_t _H5Literate_cb(hid_t g_id, const char *name,
 			     const H5L_info_t *info, void *op_data)
 {
@@ -184,7 +209,6 @@ int _H5Literate(lua_State *L)
   int ret = H5Literate(group_id, index_type, order, idx, op, L);
   return ret;
 }
-
 
 static int _H5Pget_mpio_actual_chunk_opt_mode(lua_State *L)
 {
@@ -249,11 +273,14 @@ static int _H5Pget_mpio_no_collective_cause(lua_State *L)
 
 int luaopen_hdf5(lua_State *L)
 {
-  luaL_Reg hdf5_types[] = {
+  luaL_Reg hdf5_auxf[] = {
     {"new_hid_t", _new_hid_t},
     {"new_herr_t", _new_herr_t},
     {"new_H5O_info_t", _new_H5O_info_t},
     {"new_hsize_t_arr", _new_hsize_t_arr},
+    {"H5_VERSION_GE", _H5_VERSION_GE},
+    {"H5_VERSION_LE", _H5_VERSION_LE},
+    {"H5_VERS_INFO", _H5_VERS_INFO},
     {NULL, NULL}};
 
   luaL_Reg H5O_info_t_meta[] = {
@@ -291,7 +318,7 @@ int luaopen_hdf5(lua_State *L)
   // Module definition
   // ---------------------------------------------------------------------------
   lua_newtable(L);
-  luaL_setfuncs(L, hdf5_types, 0);
+  luaL_setfuncs(L, hdf5_auxf, 0);
   luaL_setfuncs(L, H5A_funcs, 0);
   luaL_setfuncs(L, H5D_funcs, 0);
   luaL_setfuncs(L, H5E_funcs, 0);
