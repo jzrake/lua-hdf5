@@ -174,6 +174,55 @@ int _H5Literate(lua_State *L)
 }
 
 
+static int _H5Pget_mpio_actual_chunk_opt_mode(lua_State *L)
+{
+#ifdef H5_HAVE_PARALLEL
+#if (H5_VERSION_GE(1,8,8))
+  hid_t dxpl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  H5D_mpio_actual_chunk_opt_mode_t actual_chunk_opt_mode;
+  H5Pget_mpio_actual_chunk_opt_mode(dxpl_id, &actual_chunk_opt_mode);
+  lua_pushnumber(L, actual_chunk_opt_mode);
+  return 1;
+#else
+  return 0;
+#endif // H5_VERSION_GE(1,8,8)
+#endif // H5_HAVE_PARALLEL
+}
+
+static int _H5Pget_mpio_actual_io_mode(lua_State *L)
+{
+#ifdef H5_HAVE_PARALLEL
+#if (H5_VERSION_GE(1,8,8))
+  hid_t dxpl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  H5D_mpio_actual_io_mode_t actual_io_mode;
+  H5Pget_mpio_actual_io_mode(dxpl_id, &actual_io_mode);
+  lua_pushnumber(L, actual_io_mode);
+  return 1;
+#else
+  return 0;
+#endif // H5_VERSION_GE(1,8,8)
+#endif // H5_HAVE_PARALLEL
+}
+
+static int _H5Pget_mpio_no_collective_cause(lua_State *L)
+{
+#ifdef H5_HAVE_PARALLEL
+#if (H5_VERSION_GE(1,8,10))
+  hid_t dxpl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  uint32_t local_no_collective_cause;
+  uint32_t global_no_collective_cause;
+  H5Pget_mpio_no_collective_cause(dxpl_id, &local_no_collective_cause,
+				  &global_no_collective_cause);
+  lua_pushnumber(L, local_no_collective_cause);
+  lua_pushnumber(L, global_no_collective_cause);
+  return 2;
+#else
+  return 0;
+#endif // H5_VERSION_GE(1,8,10)
+#endif // H5_HAVE_PARALLEL
+}
+
+
 // -----------------------------------------------------------------------------
 // Python-generated wrappers
 // -----------------------------------------------------------------------------
