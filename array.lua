@@ -14,10 +14,7 @@ function array.set_typed(buf, T, n, v)
    buffer.set_typed(buf, buffer[T], n, v)
 end
 
-function vector:__index(i)
-   if type(descr) == 'string' then
-      error('vector has no attribute '..descr)
-   end
+function vector:__index(i,x)
    while i < 0 do i = i + #self end
    return buffer.get_typed(self._buf, buffer[self._dtype], i)
 end
@@ -63,7 +60,11 @@ function array.vector(arg, dtype)
    function new:pointer() return buffer.light(self._buf) end
    function new:dtype() return self._dtype end
    function new:view(extent, start, count, stride)
-      return array.view(self._buf, self._dtype, extent, start, count, stride)
+      return array.view(self._buf, self._dtype, extent or {#self},
+			start, count, stride)
+   end
+   function new:copy(extent, start, count, stride)
+      return self:view():copy():vector()
    end
    function new:set_printn(n) self._printn = n end
    setmetatable(new, vector)
@@ -77,9 +78,6 @@ function array.vector(arg, dtype)
 end
 
 function view:__index(descr)
-   if type(descr) == 'string' then
-      error('view has no attribute '..descr)
-   end
    local start = { }
    local count = { }
    local strid = { }
@@ -156,7 +154,7 @@ function array.view(buf, dtype, extent, start, count, stride)
       return array.view(buf, self._dtype, self._count)
    end
    function new:vector()
-      local arr = self:contigous() and self or self:copy()
+      local arr = self:contiguous() and self or self:copy()
       return array.vector(arr._buf, arr._dtype)
    end
    setmetatable(new, view)
