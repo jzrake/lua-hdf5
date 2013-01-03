@@ -631,6 +631,8 @@ function hdf5.File(name, mode, opts)
       error("File:mode must be one of [w, r, r+]")
    end
 
+   if #new._hid < 0 then error("File:could not open or create file") end
+
    H5.H5Pclose(fcpl)
    H5.H5Pclose(fapl)
    return new
