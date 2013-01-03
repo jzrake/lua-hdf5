@@ -256,8 +256,13 @@ function DataSetClass:write_selection(mspace, fspace, buf)
    if bytes > #buf then
       error("DataSet:data space selection is too small for buffer")
    end
-   local err = H5.H5Dwrite(self._hid, htype._hid, mspace._hid, fspace._hid, hp0,
+   local dxpl = H5.H5Pcreate(H5.H5P_DATASET_XFER)
+   if self._mpio ~= 'none' then
+      H5.H5Pset_dxpl_mpio(dxpl, self._mpio)
+   end
+   local err = H5.H5Dwrite(self._hid, htype._hid, mspace._hid, fspace._hid, dxpl,
 			   buf)
+   H5.H5Pclose(dxpl)
    if #err < 0 then error("DataSet:write_selection") end
 end
 
@@ -282,7 +287,7 @@ end
 function DataSetClass:get_chunk()
    local dcpl = H5.H5Dget_create_plist(self._hid)
    if H5.H5Pget_layout(dcpl) ~= H5.H5D_CHUNKED then
-      return false
+      return { }
    end
    local rank = #self:get_space():get_extent()
    local lchunk = { }
@@ -315,6 +320,12 @@ function DataSetClass:get_type()
    local typ = H5.H5Dget_type(self._hid)
    local ret = hdf5.DataType(typ) -- a copy of typ is made
    H5.H5Tclose(typ)
+   return ret
+end
+
+function DataSetClass:set_mpio(mode)
+   self._mpio = ({independent=H5.H5FD_MPIO_INDEPENDENT,
+		  collective=H5.H5FD_MPIO_COLLECTIVE})[mode] or 'none'
    return ret
 end
 
@@ -378,6 +389,7 @@ function DataSetMeta:__newindex(slice, value)
    -- buffer = value:buffer()
    --
    --------------------------------------------------------------------------
+   local slice = slice or { } -- whole selection
    if self._hid == 0 then
       error("DataSet:cannot write to closed data set")
 
@@ -404,6 +416,7 @@ function DataSetMeta:__newindex(slice, value)
       local start, stride, count, block = { }, { }, { }, { }
 
       for i=1,rank do
+	 slice[i] = slice[i] or { }
 	 start[i] = slice[i][1] or 0
 	 stride[i] = slice[i][3] or 1
 	 count[i] = ((slice[i][2] or extent[i]) - start[i]) / stride[i]
@@ -418,6 +431,8 @@ function DataSetMeta:__newindex(slice, value)
       local mspace = hdf5.DataSpace(value:extent())
       mspace:select_hyperslab(start, stride, count, block)
       self:write_selection(mspace, fspace, buf)
+   else
+      error('DataSet:index object not recognized')
    end
 end
 
@@ -530,25 +545,35 @@ end
 --------------------------------------------------------------------------------
 -- HDF5 File constructor
 --------------------------------------------------------------------------------
-function hdf5.File(name, mode)
+function hdf5.File(name, mode, mpi)
    local new = { _type='file',
 		 _name=name,
 		 _mode=mode,
 		 _hid=0,
 		 _close=H5.H5Fclose,
-		 _open_objects={ } }
+		 _open_objects={ },
+		 _mpi=mpi }
    inherit_from(FileClass, new)
    setmetatable(new, FileMeta)
 
+   local fapl = H5.H5Pcreate(H5.H5P_FILE_ACCESS)
+
+   if mpi then
+      H5.H5Pset_fapl_mpio(fapl, mpi.comm, mpi.info)
+   end
+
    if mode == "w" then
-      new._hid = H5.H5Fcreate(name, H5.H5F_ACC_TRUNC, hp0, hp0)
+      new._hid = H5.H5Fcreate(name, H5.H5F_ACC_TRUNC, hp0, fapl)
    elseif mode == "r" then
-      new._hid = H5.H5Fopen(name, H5.H5F_ACC_RDONLY, hp0)
+      new._hid = H5.H5Fopen(name, H5.H5F_ACC_RDONLY, fapl)
    elseif mode == "r+" then
-      new._hid = H5.H5Fopen(name, H5.H5F_ACC_RDWR, hp0)
+      new._hid = H5.H5Fopen(name, H5.H5F_ACC_RDWR, fapl)
    else
       error("File:mode must be one of [w, r, r+]")
    end
+
+   H5.H5Pclose(fapl)
+
    return new
 end
 
@@ -583,7 +608,8 @@ function hdf5.DataSet(parent, name, mode, opts)
 		 _parent=parent,
 		 _name=name,
 		 _hid=0,
-		 _close=H5.H5Dclose }
+		 _close=H5.H5Dclose,
+		 _mpio='none' }
    inherit_from(DataSetClass, new)
    setmetatable(new, DataSetMeta)
 
@@ -810,7 +836,7 @@ local function test8()
    h5f:close()
    local h5f = hdf5.File("outfile.h5", "r")
    local chunk = h5f["dataset"]:get_chunk()
-   assert(not chunk)
+   assert(#chunk == 0)
    h5f:close()
 end
 

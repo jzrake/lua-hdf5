@@ -113,20 +113,20 @@ class FunctionPrototype(object):
                         name, n + 1))
             elif t == "MPI_Comm":
                 get_lua_args.append(
-                    "MPI_Comm %s = *((MPI_Comm*) lua_touserdata(L, %d)); "
-                    "luaL_checktype(L, %d, LUA_TUSERDATA);" % (name, n+1, n+1))
+                    "luaL_checktype(L, %d, LUA_TUSERDATA); "
+                    "MPI_Comm %s = *((MPI_Comm*) lua_touserdata(L, %d));" % (n+1, name, n+1))
             elif t == "MPI_Info":
                 get_lua_args.append(
-                    "MPI_Info %s = *((MPI_Info*) lua_touserdata(L, %d)); "
-                    "luaL_checktype(L, %d, LUA_TUSERDATA);" % (name, n+1, n+1))
+                    "luaL_checktype(L, %d, LUA_TUSERDATA);"
+                    "MPI_Info %s = *((MPI_Info*) lua_touserdata(L, %d));" % (n+1, name, n+1))
             elif t == "MPI_Comm *":
                 get_lua_args.append(
-                    "MPI_Comm *%s = (MPI_Comm*) lua_touserdata(L, %d); "
-                    "luaL_checktype(L, %d, LUA_TUSERDATA);" % (name, n+1, n+1))
+                    "luaL_checktype(L, %d, LUA_TUSERDATA); "
+                    "MPI_Comm *%s = (MPI_Comm*) lua_touserdata(L, %d);" % (n+1, name, n+1))
             elif t == "MPI_Info *":
                 get_lua_args.append(
-                    "MPI_Info *%s = (MPI_Info*) lua_touserdata(L, %d); "
-                    "luaL_checktype(L, %d, LUA_TUSERDATA);" % (name, n+1, n+1))
+                    "luaL_checktype(L, %d, LUA_TUSERDATA); "
+                    "MPI_Info *%s = (MPI_Info*) lua_touserdata(L, %d);" % (n+1, name, n+1))
             elif t in ["H5S_class_t",
                        "H5S_seloper_t",
                        "H5R_type_t",
