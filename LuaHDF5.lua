@@ -35,13 +35,13 @@ local function class(object)
    end
 end
 
-local function set_mpio_modes(dxpl, mpio)
-   -- 
+local function mpio_stats(dxpl, mpio)
+   -----------------------------------------------------------------------------
    -- For HDF5/MPIO only. Call will simply have no result without parallel HDF5
    -- support. On HDF5 versions < 1.8.10, the [global/local]_no_collective_cause
    -- variables will not be evaluated. On HDF5 versions less than 1.8.8 none of
    -- these functions work.
-   -- 
+   -----------------------------------------------------------------------------
    if not H5.H5_VERSION_GE(1,8,8) then return end
    local Lcause, Gcause = H5.H5Pget_mpio_no_collective_cause(dxpl)
    local L = { }
@@ -285,8 +285,17 @@ function DataSetClass:read_selection(mspace, fspace, buf)
    if bytes > #buf then
       error("data space selection is too large for buffer")
    end
-   local err = H5.H5Dread(self._hid, htype._hid, mspace._hid, fspace._hid, hp0,
+   local dxpl = H5.H5Pcreate(H5.H5P_DATASET_XFER)
+   local mpio_mode = H5['H5FD_MPIO_'..(self._mpio.requested_mode or '')]
+   if mpio_mode then
+      H5.H5Pset_dxpl_mpio(dxpl, mpio_mode)
+   end
+   local err = H5.H5Dread(self._hid, htype._hid, mspace._hid, fspace._hid, dxpl,
 			  buf)
+   if mpio_mode then
+      mpio_stats(dxpl, self._mpio)
+   end
+   H5.H5Pclose(dxpl)
    if #err < 0 then error("DataSet:read_selection") end
 end
 
@@ -309,7 +318,7 @@ function DataSetClass:write_selection(mspace, fspace, buf)
    local err = H5.H5Dwrite(self._hid, htype._hid, mspace._hid, fspace._hid, dxpl,
 			   buf)
    if mpio_mode then
-      set_mpio_modes(dxpl, self._mpio)
+      mpio_stats(dxpl, self._mpio)
    end
    H5.H5Pclose(dxpl)
    if #err < 0 then error("DataSet:write_selection") end
