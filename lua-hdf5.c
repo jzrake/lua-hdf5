@@ -6,6 +6,18 @@
 #include "lualib.h"
 #include "lauxlib.h"
 
+#ifndef H5_VERSION_GE
+#define H5_VERSION_GE(Maj,Min,Rel)					\
+  (((H5_VERS_MAJOR==Maj) && (H5_VERS_MINOR==Min) && (H5_VERS_RELEASE>=Rel)) || \
+   ((H5_VERS_MAJOR==Maj) && (H5_VERS_MINOR>Min)) ||			\
+   (H5_VERS_MAJOR>Maj))
+#endif
+#ifndef H5_VERSION_LE
+#define H5_VERSION_LE(Maj,Min,Rel)					\
+  (((H5_VERS_MAJOR==Maj) && (H5_VERS_MINOR==Min) && (H5_VERS_RELEASE<=Rel)) || \
+   ((H5_VERS_MAJOR==Maj) && (H5_VERS_MINOR<Min)) ||			\
+   (H5_VERS_MAJOR<Maj))
+#endif
 
 // -----------------------------------------------------------------------------
 // hid_t
