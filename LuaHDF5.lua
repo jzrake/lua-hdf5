@@ -26,12 +26,55 @@ local function inherit_from(base, derived)
    for k,v in pairs(base) do new[k] = v end
    return new
 end
+
 local function class(object)
    if type(object) == 'table' then
       return object._type
    else
       return nil
    end
+end
+
+local function set_mpio_modes(dxpl, mpio)
+   -- 
+   -- For HDF5/MPIO only. Call will simply have no result without parallel HDF5
+   -- support. On HDF5 versions < 1.8.10, the [global/local]_no_collective_cause
+   -- variables will not be evaluated.
+   -- 
+   local Lcause, Gcause = H5.H5Pget_mpio_no_collective_cause(dxpl)
+   local L = { }
+   local G = { }
+   if Lcause and Gcause then
+      if Lcause == H5.H5D_MPIO_COLLECTIVE then L[1] = 'COLLECTIVE' end
+      if Gcause == H5.H5D_MPIO_COLLECTIVE then G[1] = 'COLLECTIVE' end
+      local s = 'H5D_MPIO_'
+      for _,c in ipairs({'SET_INDEPENDENT',
+			 'DATATYPE_CONVERSION',
+			 'DATA_TRANSFORMS',
+			 'SET_MPIPOSIX',
+			 'NOT_SIMPLE_OR_SCALAR_DATASPACES',
+			 'POINT_SELECTIONS',
+			 'NOT_CONTIGUOUS_OR_CHUNKED_DATASET',
+			 'FILTERS'}) do
+	 if bit32.band(Lcause, H5[s..c]) ~= 0 then table.insert(L, c) end
+	 if bit32.band(Gcause, H5[s..c]) ~= 0 then table.insert(G, c) end
+      end
+   end
+   mpio.local_no_collective_cause = table.concat(L, ', ')
+   mpio.global_no_collective_cause = table.concat(G, ', ')
+   mpio.actual_chunk_opt_mode = (
+      {[H5.H5D_MPIO_NO_CHUNK_OPTIMIZATION]='NO_CHUNK_OPTIMIZATION',
+       [H5.H5D_MPIO_MULTI_CHUNK]='MULTI_CHUNK',
+       [H5.H5D_MPIO_MULTI_CHUNK_NO_OPT]="MULTI_CHUNK_NO_OPT:",
+       [H5.H5D_MPIO_LINK_CHUNK]='LINK_CHUNK'}
+   )[H5.H5Pget_mpio_actual_chunk_opt_mode(dxpl)]
+   mpio.actual_io_mode = (
+      {[H5.H5D_MPIO_NO_COLLECTIVE]="NO_COLLECTIVE",
+       [H5.H5D_MPIO_CHUNK_INDEPENDENT]="CHUNK_INDEPENDENT",
+       [H5.H5D_MPIO_CHUNK_COLLECTIVE]="CHUNK_COLLECTIVE",
+       [H5.H5D_MPIO_CHUNK_MIXED]="CHUNK_MIXED",
+       [H5.H5D_MPIO_CONTIGUOUS_COLLECTIVE]="CONTIGUOUS_COLLECTIVE"}
+   )[H5.H5Pget_mpio_actual_io_mode(dxpl)]
 end
 
 
@@ -257,11 +300,15 @@ function DataSetClass:write_selection(mspace, fspace, buf)
       error("DataSet:data space selection is too small for buffer")
    end
    local dxpl = H5.H5Pcreate(H5.H5P_DATASET_XFER)
-   if self._mpio ~= 'none' then
-      H5.H5Pset_dxpl_mpio(dxpl, self._mpio)
+   local mpio_mode = H5['H5FD_MPIO_'..(self._mpio.requested_mode or '')]
+   if mpio_mode then
+      H5.H5Pset_dxpl_mpio(dxpl, mpio_mode)
    end
    local err = H5.H5Dwrite(self._hid, htype._hid, mspace._hid, fspace._hid, dxpl,
 			   buf)
+   if mpio_mode then
+      set_mpio_modes(dxpl, self._mpio)
+   end
    H5.H5Pclose(dxpl)
    if #err < 0 then error("DataSet:write_selection") end
 end
@@ -324,8 +371,11 @@ function DataSetClass:get_type()
 end
 
 function DataSetClass:set_mpio(mode)
-   self._mpio = ({independent=H5.H5FD_MPIO_INDEPENDENT,
-		  collective=H5.H5FD_MPIO_COLLECTIVE})[mode] or 'none'
+   self._mpio.requested_mode = mode
+end
+function DataSetClass:get_mpio()
+   local ret = { }
+   for k,v in pairs(self._mpio) do ret[k] = v end
    return ret
 end
 
@@ -609,7 +659,7 @@ function hdf5.DataSet(parent, name, mode, opts)
 		 _name=name,
 		 _hid=0,
 		 _close=H5.H5Dclose,
-		 _mpio='none' }
+		 _mpio={ } }
    inherit_from(DataSetClass, new)
    setmetatable(new, DataSetMeta)
 
