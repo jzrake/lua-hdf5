@@ -197,7 +197,7 @@ function IndexableMeta:__newindex(key, value)
 
       local dset = hdf5.DataSet(self, key, 'w',
 				{dtype=value:dtype(), shape=count})
-      dset:write_selection(value:buffer(), mspace, nil)
+      dset:write(value:buffer(), mspace, nil)
    else
       error("DataSet:unrecognized type for writing")
    end
@@ -247,41 +247,18 @@ end
 --------------------------------------------------------------------------------
 local DataSetClass = inherit_from(BaseClass)
 
-function DataSetClass:write(buf)
-   local spc = H5.H5Dget_space(self._hid)
-   local typ = H5.H5Dget_type(self._hid)
-   local siz = H5.H5Tget_size(typ)
-   if H5.H5Sget_select_npoints(spc) * siz > #buf then
-      error("data space selection is too large for buffer")
-   end
-   H5.H5Dwrite(self._hid, typ, spc, spc, hp0, buf)
-   H5.H5Sclose(spc)
-   H5.H5Tclose(typ)
-end
-
-function DataSetClass:read()
-   -----------------------------------------------------------------------------
-   -- Read all internal data into an un-typed data buffer. Always works.
-   -----------------------------------------------------------------------------
-   local spc = H5.H5Dget_space(self._hid)
-   local typ = H5.H5Dget_type(self._hid)
-   local siz = H5.H5Tget_size(typ)
-   local bytes = H5.H5Sget_select_npoints(spc) * siz
-   local buf = buffer.new_buffer(bytes)
-   H5.H5Dread(self._hid, typ, spc, spc, hp0, buf)
-   H5.H5Sclose(spc)
-   H5.H5Tclose(typ)
-   return buf
-end
-
-function DataSetClass:read_selection(buf, mspace, fspace)
+function DataSetClass:read(buf, mspace, fspace)
    -----------------------------------------------------------------------------
    -- Read from the data set into `buf` according to source `fspace` and
-   -- destination `mspace`. `fspace` defaults to the whole file space extent.
+   -- destination `mspace`, both of which default to all of the data set
+   -- extent. If `buf` is also absent then it is created with the smallest
+   -- possible size and returned.
    -----------------------------------------------------------------------------
    local fspace = fspace or self:get_space()
+   local mspace = mspace or self:get_space()
    local htype = self:get_type()
    local bytes = mspace:get_select_npoints() * htype:get_size() -- source size
+   local buf = buf or buffer.new_buffer(bytes)
    if bytes > #buf then
       error("data space selection is too large for buffer")
    end
@@ -296,15 +273,18 @@ function DataSetClass:read_selection(buf, mspace, fspace)
       mpio_stats(dxpl, self._mpio)
    end
    H5.H5Pclose(dxpl)
-   if #err < 0 then error("DataSet:read_selection") end
+   if #err < 0 then error("DataSet:read") end
+   return buf
 end
 
-function DataSetClass:write_selection(buf, mspace, fspace)
+function DataSetClass:write(buf, mspace, fspace)
    -----------------------------------------------------------------------------
-   -- Write from `buf` into the data set according to destination `fspace` and
-   -- source `mspace`. `fspace` defaults to the whole file space extent.
+   -- Write from the data set into `buf` according to source `fspace` and
+   -- destination `mspace`, both of which default to all of the data set
+   -- extent.
    -----------------------------------------------------------------------------
    local fspace = fspace or self:get_space()
+   local mspace = mspace or self:get_space()
    local htype = self:get_type()
    local bytes = fspace:get_select_npoints() * htype:get_size() -- dest size
    if bytes > #buf then
@@ -321,7 +301,7 @@ function DataSetClass:write_selection(buf, mspace, fspace)
       mpio_stats(dxpl, self._mpio)
    end
    H5.H5Pclose(dxpl)
-   if #err < 0 then error("DataSet:write_selection") end
+   if #err < 0 then error("DataSet:write") end
 end
 
 function DataSetClass:value()
@@ -334,14 +314,16 @@ function DataSetClass:value()
    local tstr = self:get_type():type_string()
    local tcls = self:get_type():type_class()
    if tcls == 'string' then return tostring(self:read())
-   elseif tcls == 'float' then return array.view(self:read(), tstr,
-						 space:get_extent())
+   elseif tcls == 'float' then
+      return array.view(self:read(), tstr, space:get_extent())
    else error("DataSet:could not infer a Lua type from the data set")
    end
 end
+
 function DataSetClass:get_space()
    return hdf5.DataSpace(self)
 end
+
 function DataSetClass:get_chunk()
    local dcpl = H5.H5Dget_create_plist(self._hid)
    if H5.H5Pget_layout(dcpl) ~= H5.H5D_CHUNKED then
@@ -432,7 +414,7 @@ function DataSetMeta:__index(slice)
       fspace:select_hyperslab(start, stride, count, block)
       local buf = buffer.new_buffer(mspace:get_select_npoints() *
 				    self:get_type():get_size())
-      self:read_selection(buf, mspace, fspace)
+      self:read(buf, mspace, fspace)
       for i=1,rank do
 	 start[i] = 0
       end
@@ -491,7 +473,7 @@ function DataSetMeta:__newindex(slice, value)
       local start, stride, count, block = value:selection()
       local mspace = hdf5.DataSpace(value:extent())
       mspace:select_hyperslab(start, stride, count, block)
-      self:write_selection(buf, mspace, fspace)
+      self:write(buf, mspace, fspace)
    else
       error('DataSet:index object not recognized')
    end
@@ -876,7 +858,7 @@ local function test7()
    local space = hdf5.DataSpace()
    space:set_extent{4,4,8}
    space:select_hyperslab({0,0,0}, {1,1,1}, {4,4,8}, {1,1,1})
-   h5f["dataset"]:read_selection(buf, space, space)
+   h5f["dataset"]:read(buf, space, space)
    local read_select = h5f["dataset"][{{0,4,2},{0,4,2},{0,8,2}}]
    assert(#read_select == 16)
 
