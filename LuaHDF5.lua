@@ -597,25 +597,32 @@ end
 --------------------------------------------------------------------------------
 -- HDF5 File constructor
 --------------------------------------------------------------------------------
-function hdf5.File(name, mode, mpi)
+function hdf5.File(name, mode, opts)
    local new = { _type='file',
 		 _name=name,
 		 _mode=mode,
 		 _hid=0,
 		 _close=H5.H5Fclose,
-		 _open_objects={ },
-		 _mpi=mpi }
+		 _open_objects={ } }
    inherit_from(FileClass, new)
    setmetatable(new, FileMeta)
 
+   local opts = opts or { }
+   local fcpl = H5.H5Pcreate(H5.H5P_FILE_CREATE)
    local fapl = H5.H5Pcreate(H5.H5P_FILE_ACCESS)
 
-   if mpi then
-      H5.H5Pset_fapl_mpio(fapl, mpi.comm, mpi.info)
+   if opts.mpi then
+      H5.H5Pset_fapl_mpio(fapl, opts.mpi.comm, opts.mpi.info)
+   end
+   if opts.align then
+      H5.H5Pset_alignment(fapl, opts.align.threshold, opts.align.alignment)
+   end
+   if opts.btree_ik then
+      H5.H5Pset_istore_k(fcpl, opts.btree_ik)
    end
 
    if mode == "w" then
-      new._hid = H5.H5Fcreate(name, H5.H5F_ACC_TRUNC, hp0, fapl)
+      new._hid = H5.H5Fcreate(name, H5.H5F_ACC_TRUNC, fcpl, fapl)
    elseif mode == "r" then
       new._hid = H5.H5Fopen(name, H5.H5F_ACC_RDONLY, fapl)
    elseif mode == "r+" then
@@ -624,8 +631,8 @@ function hdf5.File(name, mode, mpi)
       error("File:mode must be one of [w, r, r+]")
    end
 
+   H5.H5Pclose(fcpl)
    H5.H5Pclose(fapl)
-
    return new
 end
 
