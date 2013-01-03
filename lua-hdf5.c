@@ -186,6 +186,8 @@ static int _H5Pget_mpio_actual_chunk_opt_mode(lua_State *L)
 #else
   return 0;
 #endif // H5_VERSION_GE(1,8,8)
+#else
+  return 0;
 #endif // H5_HAVE_PARALLEL
 }
 
@@ -201,6 +203,8 @@ static int _H5Pget_mpio_actual_io_mode(lua_State *L)
 #else
   return 0;
 #endif // H5_VERSION_GE(1,8,8)
+#else
+  return 0;
 #endif // H5_HAVE_PARALLEL
 }
 
@@ -219,6 +223,8 @@ static int _H5Pget_mpio_no_collective_cause(lua_State *L)
 #else
   return 0;
 #endif // H5_VERSION_GE(1,8,10)
+#else
+  return 0;
 #endif // H5_HAVE_PARALLEL
 }
 
