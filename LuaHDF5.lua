@@ -197,7 +197,7 @@ function IndexableMeta:__newindex(key, value)
 
       local dset = hdf5.DataSet(self, key, 'w',
 				{dtype=value:dtype(), shape=count})
-      dset:write_selection(mspace, nil, value:buffer())
+      dset:write_selection(value:buffer(), mspace, nil)
    else
       error("DataSet:unrecognized type for writing")
    end
@@ -274,7 +274,7 @@ function DataSetClass:read()
    return buf
 end
 
-function DataSetClass:read_selection(mspace, fspace, buf)
+function DataSetClass:read_selection(buf, mspace, fspace)
    -----------------------------------------------------------------------------
    -- Read from the data set into `buf` according to source `fspace` and
    -- destination `mspace`. `fspace` defaults to the whole file space extent.
@@ -299,7 +299,7 @@ function DataSetClass:read_selection(mspace, fspace, buf)
    if #err < 0 then error("DataSet:read_selection") end
 end
 
-function DataSetClass:write_selection(mspace, fspace, buf)
+function DataSetClass:write_selection(buf, mspace, fspace)
    -----------------------------------------------------------------------------
    -- Write from `buf` into the data set according to destination `fspace` and
    -- source `mspace`. `fspace` defaults to the whole file space extent.
@@ -432,7 +432,7 @@ function DataSetMeta:__index(slice)
       fspace:select_hyperslab(start, stride, count, block)
       local buf = buffer.new_buffer(mspace:get_select_npoints() *
 				    self:get_type():get_size())
-      self:read_selection(mspace, fspace, buf)
+      self:read_selection(buf, mspace, fspace)
       for i=1,rank do
 	 start[i] = 0
       end
@@ -491,7 +491,7 @@ function DataSetMeta:__newindex(slice, value)
       local start, stride, count, block = value:selection()
       local mspace = hdf5.DataSpace(value:extent())
       mspace:select_hyperslab(start, stride, count, block)
-      self:write_selection(mspace, fspace, buf)
+      self:write_selection(buf, mspace, fspace)
    else
       error('DataSet:index object not recognized')
    end
@@ -876,7 +876,7 @@ local function test7()
    local space = hdf5.DataSpace()
    space:set_extent{4,4,8}
    space:select_hyperslab({0,0,0}, {1,1,1}, {4,4,8}, {1,1,1})
-   h5f["dataset"]:read_selection(space, space, buf)
+   h5f["dataset"]:read_selection(buf, space, space)
    local read_select = h5f["dataset"][{{0,4,2},{0,4,2},{0,8,2}}]
    assert(#read_select == 16)
 
