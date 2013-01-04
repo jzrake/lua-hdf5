@@ -567,7 +567,7 @@ end
 --------------------------------------------------------------------------------
 -- HDF5 File constructor
 --------------------------------------------------------------------------------
-function hdf5.File:__init__(name, mode)
+function hdf5.File:__init__(name, mode, opts)
    oo.setattrib(self, '_parent', parent)
    oo.setattrib(self, '_name', name)
    oo.setattrib(self, '_type', 'file')
