@@ -23,24 +23,70 @@ hdf5.DataSpace = oo.class('DataSpace', Base)
 hdf5.DataType  = oo.class('DataType', Base)
 
 
+local function mpio_stats(dxpl, mpio)
+   -----------------------------------------------------------------------------
+   -- For HDF5/MPIO only. Call will simply have no result without parallel HDF5
+   -- support. On HDF5 versions < 1.8.10, the [global/local]_no_collective_cause
+   -- variables will not be evaluated. On HDF5 versions less than 1.8.8 none of
+   -- these functions work.
+   -----------------------------------------------------------------------------
+   if not H5.H5_VERSION_GE(1,8,8) then return end
+   local Lcause, Gcause = H5.H5Pget_mpio_no_collective_cause(dxpl)
+   local L = { }
+   local G = { }
+   if Lcause and Gcause then
+      if Lcause == H5.H5D_MPIO_COLLECTIVE then L[1] = 'COLLECTIVE' end
+      if Gcause == H5.H5D_MPIO_COLLECTIVE then G[1] = 'COLLECTIVE' end
+      local s = 'H5D_MPIO_'
+      for _,c in ipairs({'SET_INDEPENDENT',
+			 'DATATYPE_CONVERSION',
+			 'DATA_TRANSFORMS',
+			 'SET_MPIPOSIX',
+			 'NOT_SIMPLE_OR_SCALAR_DATASPACES',
+			 'POINT_SELECTIONS',
+			 'NOT_CONTIGUOUS_OR_CHUNKED_DATASET',
+			 'FILTERS'}) do
+	 if bit32.band(Lcause, H5[s..c]) ~= 0 then table.insert(L, c) end
+	 if bit32.band(Gcause, H5[s..c]) ~= 0 then table.insert(G, c) end
+      end
+   end
+   mpio.local_no_collective_cause = table.concat(L, ', ')
+   mpio.global_no_collective_cause = table.concat(G, ', ')
+   mpio.actual_chunk_opt_mode = (
+      {[H5.H5D_MPIO_NO_CHUNK_OPTIMIZATION]='NO_CHUNK_OPTIMIZATION',
+       [H5.H5D_MPIO_MULTI_CHUNK]='MULTI_CHUNK',
+       [H5.H5D_MPIO_MULTI_CHUNK_NO_OPT]="MULTI_CHUNK_NO_OPT:",
+       [H5.H5D_MPIO_LINK_CHUNK]='LINK_CHUNK'}
+   )[H5.H5Pget_mpio_actual_chunk_opt_mode(dxpl)]
+   mpio.actual_io_mode = (
+      {[H5.H5D_MPIO_NO_COLLECTIVE]="NO_COLLECTIVE",
+       [H5.H5D_MPIO_CHUNK_INDEPENDENT]="CHUNK_INDEPENDENT",
+       [H5.H5D_MPIO_CHUNK_COLLECTIVE]="CHUNK_COLLECTIVE",
+       [H5.H5D_MPIO_CHUNK_MIXED]="CHUNK_MIXED",
+       [H5.H5D_MPIO_CONTIGUOUS_COLLECTIVE]="CONTIGUOUS_COLLECTIVE"}
+   )[H5.H5Pget_mpio_actual_io_mode(dxpl)]
+end
+
 
 --------------------------------------------------------------------------------
 -- Base classes for meta-table and methods wrapping hid_t objects
 --------------------------------------------------------------------------------
-
 function Base:__index__()
    if self._hid == 0 then -- object is closed
       return nil
    end
 end
+
 function Base:__newindex__()
    if self._hid == 0 then -- object is closed
       error("cannot assign to closed object")
    end
 end
+
 function Base:__gc__()
    self:close()
 end
+
 function Base:close()
    if self._open_objects then
       for k,v in pairs(self._open_objects) do
@@ -136,7 +182,7 @@ function Indexable:__newindex__(key, value)
 
       local dset = hdf5.DataSet(self, key, 'w',
 				{dtype=value:dtype(), shape=count})
-      dset:write_selection(mspace, nil, value:buffer())
+      dset:write(value:buffer(), mspace, nil)
    else
       error("DataSet:unrecognized type for writing")
    end
@@ -175,66 +221,61 @@ function hdf5.Group:__tostring__()
 end
 
 
---------------------------------------------------------------------------------
--- HDF5 DataSet class methods
---------------------------------------------------------------------------------
-function hdf5.DataSet:write(buf)
-   local spc = H5.H5Dget_space(self._hid)
-   local typ = H5.H5Dget_type(self._hid)
-   local siz = H5.H5Tget_size(typ)
-   if H5.H5Sget_select_npoints(spc) * siz > #buf then
-      error("data space selection is too large for buffer")
-   end
-   H5.H5Dwrite(self._hid, typ, spc, spc, hp0, buf)
-   H5.H5Sclose(spc)
-   H5.H5Tclose(typ)
-end
-
-function hdf5.DataSet:read()
-   -----------------------------------------------------------------------------
-   -- Read all internal data into an un-typed data buffer. Always works.
-   -----------------------------------------------------------------------------
-   local spc = H5.H5Dget_space(self._hid)
-   local typ = H5.H5Dget_type(self._hid)
-   local siz = H5.H5Tget_size(typ)
-   local bytes = H5.H5Sget_select_npoints(spc) * siz
-   local buf = buffer.new_buffer(bytes)
-   H5.H5Dread(self._hid, typ, spc, spc, hp0, buf)
-   H5.H5Sclose(spc)
-   H5.H5Tclose(typ)
-   return buf
-end
-
-function hdf5.DataSet:read_selection(mspace, fspace, buf)
+function hdf5.DataSet:read(buf, mspace, fspace)
    -----------------------------------------------------------------------------
    -- Read from the data set into `buf` according to source `fspace` and
-   -- destination `mspace`. `fspace` defaults to the whole file space extent.
+   -- destination `mspace`, both of which default to all of the data set
+   -- extent. If `buf` is also absent then it is created with the smallest
+   -- possible size and returned.
    -----------------------------------------------------------------------------
    local fspace = fspace or self:get_space()
+   local mspace = mspace or self:get_space()
    local htype = self:get_type()
    local bytes = mspace:get_select_npoints() * htype:get_size() -- source size
+   local buf = buf or buffer.new_buffer(bytes)
    if bytes > #buf then
       error("data space selection is too large for buffer")
    end
-   local err = H5.H5Dread(self._hid, htype._hid, mspace._hid, fspace._hid, hp0,
+   local dxpl = H5.H5Pcreate(H5.H5P_DATASET_XFER)
+   local mpio_mode = H5['H5FD_MPIO_'..(self._mpio.requested_mode or '')]
+   if mpio_mode then
+      H5.H5Pset_dxpl_mpio(dxpl, mpio_mode)
+   end
+   local err = H5.H5Dread(self._hid, htype._hid, mspace._hid, fspace._hid, dxpl,
 			  buf)
-   if #err < 0 then error("DataSet:read_selection") end
+   if mpio_mode then
+      mpio_stats(dxpl, self._mpio)
+   end
+   H5.H5Pclose(dxpl)
+   if #err < 0 then error("DataSet:read") end
+   return buf
 end
 
-function hdf5.DataSet:write_selection(mspace, fspace, buf)
+function hdf5.DataSet:write(buf, mspace, fspace)
    -----------------------------------------------------------------------------
-   -- Write from `buf` into the data set according to destination `fspace` and
-   -- source `mspace`. `fspace` defaults to the whole file space extent.
+   -- Write from the data set into `buf` according to source `fspace` and
+   -- destination `mspace`, both of which default to all of the data set
+   -- extent.
    -----------------------------------------------------------------------------
    local fspace = fspace or self:get_space()
+   local mspace = mspace or self:get_space()
    local htype = self:get_type()
    local bytes = fspace:get_select_npoints() * htype:get_size() -- dest size
    if bytes > #buf then
       error("DataSet:data space selection is too small for buffer")
    end
-   local err = H5.H5Dwrite(self._hid, htype._hid, mspace._hid, fspace._hid, hp0,
+   local dxpl = H5.H5Pcreate(H5.H5P_DATASET_XFER)
+   local mpio_mode = H5['H5FD_MPIO_'..(self._mpio.requested_mode or '')]
+   if mpio_mode then
+      H5.H5Pset_dxpl_mpio(dxpl, mpio_mode)
+   end
+   local err = H5.H5Dwrite(self._hid, htype._hid, mspace._hid, fspace._hid, dxpl,
 			   buf)
-   if #err < 0 then error("DataSet:write_selection") end
+   if mpio_mode then
+      mpio_stats(dxpl, self._mpio)
+   end
+   H5.H5Pclose(dxpl)
+   if #err < 0 then error("DataSet:write") end
 end
 
 function hdf5.DataSet:value()
@@ -247,8 +288,8 @@ function hdf5.DataSet:value()
    local tstr = self:get_type():type_string()
    local tcls = self:get_type():type_class()
    if tcls == 'string' then return tostring(self:read())
-   elseif tcls == 'float' then return array.view(self:read(), tstr,
-						 space:get_extent())
+   elseif tcls == 'float' then
+      return array.view(self:read(), tstr, space:get_extent())
    else error("DataSet:could not infer a Lua type from the data set")
    end
 end
@@ -260,7 +301,7 @@ end
 function hdf5.DataSet:get_chunk()
    local dcpl = H5.H5Dget_create_plist(self._hid)
    if H5.H5Pget_layout(dcpl) ~= H5.H5D_CHUNKED then
-      return false
+      return { }
    end
    local rank = #self:get_space():get_extent()
    local lchunk = { }
@@ -295,6 +336,16 @@ function hdf5.DataSet:get_type()
    local typ = H5.H5Dget_type(self._hid)
    local ret = hdf5.DataType(typ) -- a copy of typ is made
    H5.H5Tclose(typ)
+   return ret
+end
+
+function hdf5.DataSet:set_mpio(mode)
+   self._mpio.requested_mode = mode
+end
+
+function hdf5.DataSet:get_mpio()
+   local ret = { }
+   for k,v in pairs(self._mpio) do ret[k] = v end
    return ret
 end
 
@@ -338,7 +389,7 @@ function hdf5.DataSet:__index__(slice)
       fspace:select_hyperslab(start, stride, count, block)
       local buf = buffer.new_buffer(mspace:get_select_npoints() *
 				    self:get_type():get_size())
-      self:read_selection(mspace, fspace, buf)
+      self:read(buf, mspace, fspace)
       for i=1,rank do
 	 start[i] = 0
       end
@@ -356,6 +407,7 @@ function hdf5.DataSet:__newindex__(slice, value)
    -- buffer = value:buffer()
    --
    --------------------------------------------------------------------------
+   local slice = slice or { } -- whole selection
    if self._hid == 0 then
       error("DataSet:cannot write to closed data set")
 
@@ -382,6 +434,7 @@ function hdf5.DataSet:__newindex__(slice, value)
       local start, stride, count, block = { }, { }, { }, { }
 
       for i=1,rank do
+	 slice[i] = slice[i] or { }
 	 start[i] = slice[i][1] or 0
 	 stride[i] = slice[i][3] or 1
 	 count[i] = ((slice[i][2] or extent[i]) - start[i]) / stride[i]
@@ -395,7 +448,9 @@ function hdf5.DataSet:__newindex__(slice, value)
       local start, stride, count, block = value:selection()
       local mspace = hdf5.DataSpace(value:extent())
       mspace:select_hyperslab(start, stride, count, block)
-      self:write_selection(mspace, fspace, buf)
+      self:write(buf, mspace, fspace)
+   else
+      error('DataSet:index object not recognized')
    end
 end
 
@@ -520,15 +575,33 @@ function hdf5.File:__init__(name, mode)
    oo.setattrib(self, '_close', H5.H5Fclose)
    oo.setattrib(self, '_open_objects', { })
 
+   local opts = opts or { }
+   local fcpl = H5.H5Pcreate(H5.H5P_FILE_CREATE)
+   local fapl = H5.H5Pcreate(H5.H5P_FILE_ACCESS)
+
+   if opts.mpi then
+      H5.H5Pset_fapl_mpio(fapl, opts.mpi.comm, opts.mpi.info)
+   end
+   if opts.align then
+      H5.H5Pset_alignment(fapl, opts.align.threshold, opts.align.alignment)
+   end
+   if opts.btree_ik then
+      H5.H5Pset_istore_k(fcpl, opts.btree_ik)
+   end
+
    if mode == "w" then
-      self._hid = H5.H5Fcreate(name, H5.H5F_ACC_TRUNC, hp0, hp0)
+      self._hid = H5.H5Fcreate(name, H5.H5F_ACC_TRUNC, fcpl, fapl)
    elseif mode == "r" then
-      self._hid = H5.H5Fopen(name, H5.H5F_ACC_RDONLY, hp0)
+      self._hid = H5.H5Fopen(name, H5.H5F_ACC_RDONLY, fapl)
    elseif mode == "r+" then
-      self._hid = H5.H5Fopen(name, H5.H5F_ACC_RDWR, hp0)
+      self._hid = H5.H5Fopen(name, H5.H5F_ACC_RDWR, fapl)
    else
       error("File:mode must be one of [w, r, r+]")
    end
+
+   if #self._hid < 0 then error("File:could not open or create file") end
+   H5.H5Pclose(fcpl)
+   H5.H5Pclose(fapl)
 end
 
 
@@ -560,6 +633,7 @@ function hdf5.DataSet:__init__(parent, name, mode, opts)
    oo.setattrib(self, '_name', name)
    oo.setattrib(self, '_type', 'data set')
    oo.setattrib(self, '_hid', 0)
+   oo.setattrib(self, '_mpio', { })
    oo.setattrib(self, '_close', H5.H5Dclose)
 
    local opts = opts or { }
@@ -748,7 +822,7 @@ local function test7()
    local space = hdf5.DataSpace()
    space:set_extent{4,4,8}
    space:select_hyperslab({0,0,0}, {1,1,1}, {4,4,8}, {1,1,1})
-   h5f["dataset"]:read_selection(space, space, buf)
+   h5f["dataset"]:read(buf, space, space)
    local read_select = h5f["dataset"][{{0,4,2},{0,4,2},{0,8,2}}]
    assert(#read_select == 16)
 
@@ -778,7 +852,7 @@ local function test8()
    h5f:close()
    local h5f = hdf5.File("outfile.h5", "r")
    local chunk = h5f["dataset"]:get_chunk()
-   assert(not chunk)
+   assert(#chunk == 0)
    h5f:close()
 end
 

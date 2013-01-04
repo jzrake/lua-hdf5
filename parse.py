@@ -111,6 +111,22 @@ class FunctionPrototype(object):
                 get_lua_args.append(
                     "hsize_t %s = luaL_checkunsigned(L, %d);" % (
                         name, n + 1))
+            elif t == "MPI_Comm":
+                get_lua_args.append(
+                    "luaL_checktype(L, %d, LUA_TUSERDATA); "
+                    "MPI_Comm %s = *((MPI_Comm*) lua_touserdata(L, %d));" % (n+1, name, n+1))
+            elif t == "MPI_Info":
+                get_lua_args.append(
+                    "luaL_checktype(L, %d, LUA_TUSERDATA);"
+                    "MPI_Info %s = *((MPI_Info*) lua_touserdata(L, %d));" % (n+1, name, n+1))
+            elif t == "MPI_Comm *":
+                get_lua_args.append(
+                    "luaL_checktype(L, %d, LUA_TUSERDATA); "
+                    "MPI_Comm *%s = (MPI_Comm*) lua_touserdata(L, %d);" % (n+1, name, n+1))
+            elif t == "MPI_Info *":
+                get_lua_args.append(
+                    "luaL_checktype(L, %d, LUA_TUSERDATA); "
+                    "MPI_Info *%s = (MPI_Info*) lua_touserdata(L, %d);" % (n+1, name, n+1))
             elif t in ["H5S_class_t",
                        "H5S_seloper_t",
                        "H5R_type_t",
@@ -207,7 +223,6 @@ def header_data(pref1, outfile=None, regtype="number", linestart="define",
         m = target.match(line)
         if m:
             s = m.group(1)
-
             if s != "H5_DLL" and s == s.upper():
                 if "MPI" not in s or mpi:
                     if s in byhand:
@@ -217,7 +232,10 @@ def header_data(pref1, outfile=None, regtype="number", linestart="define",
                     elif regtype == "hid":
                         outfile.write("  REG_HID(%s);\n" % s)
 byhand = {
-    "L": ["H5Literate"]
+    "L": ["H5Literate"],
+    "P": ["H5Pget_mpio_actual_chunk_opt_mode",
+          "H5Pget_mpio_actual_io_mode",
+          "H5Pget_mpio_no_collective_cause"]
 }
 
 # For collecting functions from header files:

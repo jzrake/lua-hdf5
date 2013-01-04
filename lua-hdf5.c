@@ -6,6 +6,18 @@
 #include "lualib.h"
 #include "lauxlib.h"
 
+#ifndef H5_VERSION_GE
+#define H5_VERSION_GE(Maj,Min,Rel)					\
+  (((H5_VERS_MAJOR==Maj) && (H5_VERS_MINOR==Min) && (H5_VERS_RELEASE>=Rel)) || \
+   ((H5_VERS_MAJOR==Maj) && (H5_VERS_MINOR>Min)) ||			\
+   (H5_VERS_MAJOR>Maj))
+#endif
+#ifndef H5_VERSION_LE
+#define H5_VERSION_LE(Maj,Min,Rel)					\
+  (((H5_VERS_MAJOR==Maj) && (H5_VERS_MINOR==Min) && (H5_VERS_RELEASE<=Rel)) || \
+   ((H5_VERS_MAJOR==Maj) && (H5_VERS_MINOR<Min)) ||			\
+   (H5_VERS_MAJOR<Maj))
+#endif
 
 // -----------------------------------------------------------------------------
 // hid_t
@@ -146,6 +158,31 @@ static int _hsize_t_arr__newindex(lua_State *L)
 // -----------------------------------------------------------------------------
 // By-hand wrappers
 // -----------------------------------------------------------------------------
+
+static int _H5_VERSION_GE(lua_State *L)
+{
+  int Maj = luaL_checkinteger(L, 1);
+  int Min = luaL_checkinteger(L, 2);
+  int Rel = luaL_checkinteger(L, 3);
+  lua_pushboolean(L, H5_VERSION_GE(Maj,Min,Rel));
+  return 1;
+}
+
+static int _H5_VERSION_LE(lua_State *L)
+{
+  int Maj = luaL_checkinteger(L, 1);
+  int Min = luaL_checkinteger(L, 2);
+  int Rel = luaL_checkinteger(L, 3);
+  lua_pushboolean(L, H5_VERSION_LE(Maj,Min,Rel));
+  return 1;
+}
+
+static int _H5_VERS_INFO(lua_State *L)
+{
+  lua_pushstring(L, H5_VERS_INFO);
+  return 1;
+}
+
 static herr_t _H5Literate_cb(hid_t g_id, const char *name,
 			     const H5L_info_t *info, void *op_data)
 {
@@ -173,6 +210,60 @@ int _H5Literate(lua_State *L)
   return ret;
 }
 
+static int _H5Pget_mpio_actual_chunk_opt_mode(lua_State *L)
+{
+#ifdef H5_HAVE_PARALLEL
+#if (H5_VERSION_GE(1,8,8))
+  hid_t dxpl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  H5D_mpio_actual_chunk_opt_mode_t actual_chunk_opt_mode;
+  H5Pget_mpio_actual_chunk_opt_mode(dxpl_id, &actual_chunk_opt_mode);
+  lua_pushnumber(L, actual_chunk_opt_mode);
+  return 1;
+#else
+  return 0;
+#endif // H5_VERSION_GE(1,8,8)
+#else
+  return 0;
+#endif // H5_HAVE_PARALLEL
+}
+
+static int _H5Pget_mpio_actual_io_mode(lua_State *L)
+{
+#ifdef H5_HAVE_PARALLEL
+#if (H5_VERSION_GE(1,8,8))
+  hid_t dxpl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  H5D_mpio_actual_io_mode_t actual_io_mode;
+  H5Pget_mpio_actual_io_mode(dxpl_id, &actual_io_mode);
+  lua_pushnumber(L, actual_io_mode);
+  return 1;
+#else
+  return 0;
+#endif // H5_VERSION_GE(1,8,8)
+#else
+  return 0;
+#endif // H5_HAVE_PARALLEL
+}
+
+static int _H5Pget_mpio_no_collective_cause(lua_State *L)
+{
+#ifdef H5_HAVE_PARALLEL
+#if (H5_VERSION_GE(1,8,10))
+  hid_t dxpl_id = *((hid_t*) luaL_checkudata(L, 1, "HDF5::hid_t"));
+  uint32_t local_no_collective_cause;
+  uint32_t global_no_collective_cause;
+  H5Pget_mpio_no_collective_cause(dxpl_id, &local_no_collective_cause,
+				  &global_no_collective_cause);
+  lua_pushnumber(L, local_no_collective_cause);
+  lua_pushnumber(L, global_no_collective_cause);
+  return 2;
+#else
+  return 0;
+#endif // H5_VERSION_GE(1,8,10)
+#else
+  return 0;
+#endif // H5_HAVE_PARALLEL
+}
+
 
 // -----------------------------------------------------------------------------
 // Python-generated wrappers
@@ -182,11 +273,14 @@ int _H5Literate(lua_State *L)
 
 int luaopen_hdf5(lua_State *L)
 {
-  luaL_Reg hdf5_types[] = {
+  luaL_Reg hdf5_auxf[] = {
     {"new_hid_t", _new_hid_t},
     {"new_herr_t", _new_herr_t},
     {"new_H5O_info_t", _new_H5O_info_t},
     {"new_hsize_t_arr", _new_hsize_t_arr},
+    {"H5_VERSION_GE", _H5_VERSION_GE},
+    {"H5_VERSION_LE", _H5_VERSION_LE},
+    {"H5_VERS_INFO", _H5_VERS_INFO},
     {NULL, NULL}};
 
   luaL_Reg H5O_info_t_meta[] = {
@@ -224,7 +318,7 @@ int luaopen_hdf5(lua_State *L)
   // Module definition
   // ---------------------------------------------------------------------------
   lua_newtable(L);
-  luaL_setfuncs(L, hdf5_types, 0);
+  luaL_setfuncs(L, hdf5_auxf, 0);
   luaL_setfuncs(L, H5A_funcs, 0);
   luaL_setfuncs(L, H5D_funcs, 0);
   luaL_setfuncs(L, H5E_funcs, 0);
