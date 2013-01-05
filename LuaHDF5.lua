@@ -415,9 +415,6 @@ function DataSetMeta:__index(slice)
       local buf = buffer.new_buffer(mspace:get_select_npoints() *
 				    self:get_type():get_size())
       self:read(buf, mspace, fspace)
-      for i=1,rank do
-	 start[i] = 0
-      end
       return array.view(buf, htype:type_string(), count)
    end
 end
