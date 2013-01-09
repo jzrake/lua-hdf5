@@ -176,6 +176,15 @@ function array.view(buf, dtype, extent, start, count, stride)
    return new
 end
 
+function array.array(extent, dtype)
+   local dtype = dtype or 'double'
+   local N = 1
+   for i,n in ipairs(extent) do N = N * n end
+   local buf = buffer.new_buffer(N * buffer.sizeof(buffer[dtype]))
+   return array.view(buf, dtype, extent)
+end
+
+
 local function test1()
    local vec = array.vector{0.0, 1.0, 2.0}
    assert(#vec == 3)
