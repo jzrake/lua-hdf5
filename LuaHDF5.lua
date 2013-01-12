@@ -670,7 +670,7 @@ function hdf5.DataSet(parent, name, mode, opts)
       local dtype = hdf5.DataType(opts.dtype)
 
       if H5.H5Lexists(parent._hid, name, hp0) then
-       	 local err = H5.H5Ldelete(parent._hid, name)
+       	 local err = H5.H5Ldelete(parent._hid, name, hp0)
        	 if #err < 0 then
        	    error("DataSet:failed to clobber existing data set")
        	 else
