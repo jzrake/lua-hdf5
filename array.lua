@@ -15,6 +15,9 @@ function array.set_typed(buf, T, n, v)
 end
 
 function vector:__index(i,x)
+   if type(i) == 'string' then
+      error('vector has no method '..i)
+   end
    while i < 0 do i = i + #self end
    return buffer.get_typed(self._buf, buffer[self._dtype], i)
 end
@@ -27,7 +30,7 @@ function vector:__len(i,x)
 end
 function vector:__tostring(i,x)
    local tab = { }
-   if #self <= 8 then
+   if #self <= self._printn then
       for i=1,#self do
 	 tab[i] = self[i-1]
       end
@@ -59,6 +62,8 @@ function array.vector(arg, dtype)
    function new:buffer() return self._buf end
    function new:pointer() return buffer.light(self._buf) end
    function new:dtype() return self._dtype end
+   function new:selection() return self:view():selection() end
+   function new:extent() return self:view():extent() end
    function new:view(extent, start, count, stride)
       return array.view(self._buf, self._dtype, extent or {#self},
 			start, count, stride)
