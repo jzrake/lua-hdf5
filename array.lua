@@ -78,6 +78,12 @@ function array.vector(arg, dtype)
 end
 
 function view:__index(descr)
+   local descr = descr or { }
+   if type(descr) == 'string' then
+      error('view has no method '..descr)
+   elseif type(descr) == 'number' then
+      error('index must be a table')
+   end
    local start = { }
    local count = { }
    local strid = { }
@@ -91,6 +97,9 @@ function view:__index(descr)
       start[i] = descr[i][1] or 0
       strid[i] = descr[i][3] or 1
       count[i] =(descr[i][2] - start[i]) / strid[i]
+      if count[i] <= 0 then
+	 error('count must be >= 0')
+      end
    end
    for i=1,self._rank do
       start[i] = start[i] + self._start[i]
@@ -101,6 +110,57 @@ function view:__index(descr)
    end
    return array.view(self._buf, self._dtype, self._extent, start, count, strid)
 end
+
+function view:__newindex(descr, value)
+   local descr = descr or { }
+   if type(descr) == 'string' then
+      error('view has no method '..descr)
+   elseif type(descr) == 'number' then
+      error('index must be a table')
+   end
+   local exten = self._extent
+   local start = { }
+   local count = { }
+   local strid = { }
+   local shape = self:shape()
+   for i=1,self._rank do
+      descr[i] = descr[i] or { }
+      descr[i][2] = descr[i][2] or shape[i]
+      while descr[i][2] < 0 do
+	 descr[i][2] = descr[i][2] + shape[i]
+      end
+      start[i] = descr[i][1] or 0
+      strid[i] = descr[i][3] or 1
+      count[i] =(descr[i][2] - start[i]) / strid[i]
+      if count[i] <= 0 then
+	 error('count must be >= 0')
+      end
+   end
+   for i=1,self._rank do
+      start[i] = start[i] + self._start[i]
+      strid[i] = strid[i] * self._stride[i]
+      if start[i] + count[i] > shape[i] then
+	 error('start + count not within extent')
+      end
+   end
+
+   local exten0 = array.vector(exten, 'int'):buffer()
+   local start0 = array.vector(start, 'int'):buffer()
+   local strid0 = array.vector(strid, 'int'):buffer()
+   local count0 = array.vector(count, 'int'):buffer()
+   local exten1 = array.vector(value._extent, 'int'):buffer()
+   local start1 = array.vector(value._start, 'int'):buffer()
+   local strid1 = array.vector(value._stride, 'int'):buffer()
+   local count1 = array.vector(value._count, 'int'):buffer()
+
+   local buf0 = self._buf
+   local buf1 = value._buf
+
+   buffer.copy(buf0, exten0, start0, strid0, count0,
+	       buf1, exten1, start1, strid1, count1,
+	       array.sizeof(self._dtype))
+end
+
 function view:__len()
    return self._vsize
 end
@@ -184,7 +244,9 @@ function array.array(extent, dtype)
    return array.view(buf, dtype, extent)
 end
 
-
+--------------------------------------------------------------------------------
+-- Module test suite
+--------------------------------------------------------------------------------
 local function test1()
    local vec = array.vector{0.0, 1.0, 2.0}
    assert(#vec == 3)
@@ -223,6 +285,18 @@ local function test3()
    assert(not view1:contiguous())
    assert(not view2:contiguous())
 end
+local function test4()
+   local A0 = array.array{10,10,10}
+   local A1 = array.array{10,10,10}
+   local V0 = A0:vector()
+   local V1 = A1:vector()
+   A0[{{2,8},{2,8},{2,8}}] = A1[{{2,8},{2,8},{2,8}}]
+   for i=0,#V0-1 do
+      if V0[i] ~= 0 then
+	 assert(V0[i] == V1[i])
+      end
+   end
+end
 
 
 --------------------------------------------------------------------------------
@@ -234,5 +308,6 @@ else
    test1()
    test2()
    test3()
+   test4()
    print(debug.getinfo(1).source, ": All tests passed")
 end
