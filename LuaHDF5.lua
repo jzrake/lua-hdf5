@@ -174,15 +174,25 @@ function IndexableMeta:__newindex(key, value)
    if type(value) == 'string' then
       local targ = self._hid
       local data = buffer.new_buffer(value)
-
       local fspc = H5.H5Screate(H5.H5S_SCALAR)
       local strn = H5.H5Tcopy(H5.H5T_C_S1)
+
       H5.H5Tset_size(strn, #data)
       local dset = H5.H5Dcreate2(targ, key, strn, fspc, hp0, hp0, hp0)
 
       H5.H5Dwrite(dset, strn, fspc, fspc, hp0, data)
       H5.H5Dclose(dset)
       H5.H5Tclose(strn)
+      H5.H5Sclose(fspc)
+
+   elseif type(value) == 'number' then
+      local targ = self._hid
+      local fspc = H5.H5Screate(H5.H5S_SCALAR)
+      local data = array.vector{value}
+      local dset = H5.H5Dcreate2(targ, key, H5.H5T_NATIVE_DOUBLE, fspc,
+				 hp0, hp0, hp0)
+      H5.H5Dwrite(dset, H5.H5T_NATIVE_DOUBLE, fspc, fspc, hp0, data:buffer())
+      H5.H5Dclose(dset)
       H5.H5Sclose(fspc)
 
    elseif value.buffer and value.dtype and value.selection then
@@ -315,7 +325,13 @@ function DataSetClass:value()
    local tcls = self:get_type():type_class()
    if tcls == 'string' then return tostring(self:read())
    elseif tcls == 'float' then
-      return array.view(self:read(), tstr, space:get_extent())
+      local extent = space:get_extent()
+      local dtype = buffer[self:get_type():type_string()]
+      if #extent == 0 then -- scalar data set
+	 return buffer.get_typed(self:read(), dtype, 0)
+      else
+	 return array.view(self:read(), tstr, extent)
+      end
    else error("DataSet:could not infer a Lua type from the data set")
    end
 end
@@ -381,6 +397,7 @@ function DataSetMeta:__tostring()
    end
 end
 function DataSetMeta:__index(slice)
+   local slice = slice or { }
    if self._hid == 0 then
       return nil
    elseif type(slice) == 'string' then
@@ -405,6 +422,7 @@ function DataSetMeta:__index(slice)
       local rank = #extent
       local start, stride, count, block = { }, { }, { }, { }
       for i=1,rank do
+	 slice[i] = slice[i] or { }
 	 start[i] = slice[i][1] or 0
 	 stride[i] = slice[i][3] or 1
 	 count[i] = ((slice[i][2] or extent[i]) - start[i]) / stride[i]
