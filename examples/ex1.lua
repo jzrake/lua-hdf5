@@ -14,7 +14,6 @@
 --------------------------------------------------------------------------------
 
 local hdf5 = require 'LuaHDF5'
-local buffer = require 'buffer'
 local array = require 'array'
 
 local the_array = array.array({16,32,64}, 'double')

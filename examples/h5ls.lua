@@ -22,10 +22,11 @@ local function iterate_group(grp, indent)
 end
 
 local fname = arg[2]
-local h5f = hdf5.File(fname, 'r')
 
-if not arg[2] then
+if not fname then
    print("usage: h5ls.lua infile.h5")
 else
+   local h5f = hdf5.File(fname, 'r')
    iterate_group(h5f)
+   h5f:close()
 end
