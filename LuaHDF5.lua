@@ -116,6 +116,12 @@ function BaseClass:close()
       -- object is already closed
    end
 end
+function BaseClass:class()
+   return self._type
+end
+function BaseClass:name()
+   return self._name
+end
 
 
 --------------------------------------------------------------------------------
