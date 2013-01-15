@@ -15,6 +15,9 @@ function array.set_typed(buf, T, n, v)
 end
 
 function vector:__index(i,x)
+   if type(i) == 'string' then
+      error('vector has no method '..i)
+   end
    while i < 0 do i = i + #self end
    return buffer.get_typed(self._buf, buffer[self._dtype], i)
 end
@@ -27,7 +30,7 @@ function vector:__len(i,x)
 end
 function vector:__tostring(i,x)
    local tab = { }
-   if #self <= 8 then
+   if #self <= self._printn then
       for i=1,#self do
 	 tab[i] = self[i-1]
       end
@@ -59,12 +62,19 @@ function array.vector(arg, dtype)
    function new:buffer() return self._buf end
    function new:pointer() return buffer.light(self._buf) end
    function new:dtype() return self._dtype end
+   function new:selection() return self:view():selection() end
+   function new:extent() return self:view():extent() end
    function new:view(extent, start, count, stride)
       return array.view(self._buf, self._dtype, extent or {#self},
 			start, count, stride)
    end
    function new:copy(extent, start, count, stride)
       return self:view():copy():vector()
+   end
+   function new:table()
+      local ret = { }
+      for i=1,#self do ret[i] = self[i-1] end
+      return ret
    end
    function new:set_printn(n) self._printn = n end
    setmetatable(new, vector)
@@ -78,6 +88,12 @@ function array.vector(arg, dtype)
 end
 
 function view:__index(descr)
+   local descr = descr or { }
+   if type(descr) == 'string' then
+      error('view has no method '..descr)
+   elseif type(descr) == 'number' then
+      error('index must be a table')
+   end
    local start = { }
    local count = { }
    local strid = { }
@@ -91,6 +107,9 @@ function view:__index(descr)
       start[i] = descr[i][1] or 0
       strid[i] = descr[i][3] or 1
       count[i] =(descr[i][2] - start[i]) / strid[i]
+      if count[i] <= 0 then
+	 error('count must be >= 0')
+      end
    end
    for i=1,self._rank do
       start[i] = start[i] + self._start[i]
@@ -101,6 +120,57 @@ function view:__index(descr)
    end
    return array.view(self._buf, self._dtype, self._extent, start, count, strid)
 end
+
+function view:__newindex(descr, value)
+   local descr = descr or { }
+   if type(descr) == 'string' then
+      error('view has no method '..descr)
+   elseif type(descr) == 'number' then
+      error('index must be a table')
+   end
+   local exten = self._extent
+   local start = { }
+   local count = { }
+   local strid = { }
+   local shape = self:shape()
+   for i=1,self._rank do
+      descr[i] = descr[i] or { }
+      descr[i][2] = descr[i][2] or shape[i]
+      while descr[i][2] < 0 do
+	 descr[i][2] = descr[i][2] + shape[i]
+      end
+      start[i] = descr[i][1] or 0
+      strid[i] = descr[i][3] or 1
+      count[i] =(descr[i][2] - start[i]) / strid[i]
+      if count[i] <= 0 then
+	 error('count must be >= 0')
+      end
+   end
+   for i=1,self._rank do
+      start[i] = start[i] + self._start[i]
+      strid[i] = strid[i] * self._stride[i]
+      if start[i] + count[i] > shape[i] then
+	 error('start + count not within extent')
+      end
+   end
+
+   local exten0 = array.vector(exten, 'int'):buffer()
+   local start0 = array.vector(start, 'int'):buffer()
+   local strid0 = array.vector(strid, 'int'):buffer()
+   local count0 = array.vector(count, 'int'):buffer()
+   local exten1 = array.vector(value._extent, 'int'):buffer()
+   local start1 = array.vector(value._start, 'int'):buffer()
+   local strid1 = array.vector(value._stride, 'int'):buffer()
+   local count1 = array.vector(value._count, 'int'):buffer()
+
+   local buf0 = self._buf
+   local buf1 = value._buf
+
+   buffer.copy(buf0, exten0, start0, strid0, count0,
+	       buf1, exten1, start1, strid1, count1,
+	       array.sizeof(self._dtype))
+end
+
 function view:__len()
    return self._vsize
 end
@@ -145,17 +215,31 @@ function array.view(buf, dtype, extent, start, count, stride)
       return true
    end
    function new:copy()
-      local buf = buffer.extract(self._buf, self._rank,
-				 array.sizeof(self._dtype),
-				 array.vector(self._extent, 'int')._buf,
-				 array.vector(self._start, 'int')._buf,
-				 array.vector(self._stride, 'int')._buf,
-				 array.vector(self._count, 'int')._buf)
-      return array.view(buf, self._dtype, self._count)
+      local copy = array.array(self:shape(), self:dtype())
+      local exten0 = array.vector(copy._extent, 'int'):buffer()
+      local start0 = array.vector(copy._start, 'int'):buffer()
+      local strid0 = array.vector(copy._stride, 'int'):buffer()
+      local count0 = array.vector(copy._count, 'int'):buffer()
+      local exten1 = array.vector(self._extent, 'int'):buffer()
+      local start1 = array.vector(self._start, 'int'):buffer()
+      local strid1 = array.vector(self._stride, 'int'):buffer()
+      local count1 = array.vector(self._count, 'int'):buffer()
+      local buf0 = copy._buf
+      local buf1 = self._buf
+      buffer.copy(buf0, exten0, start0, strid0, count0,
+		  buf1, exten1, start1, strid1, count1,
+		  array.sizeof(self._dtype))
+      return copy
    end
    function new:vector()
       local arr = self:contiguous() and self or self:copy()
       return array.vector(arr._buf, arr._dtype)
+   end
+   function new:table()
+      local vec = self:vector()
+      local ret = { }
+      for i=1,#vec do ret[i] = vec[i-1] end
+      return ret
    end
    setmetatable(new, view)
 
@@ -176,6 +260,17 @@ function array.view(buf, dtype, extent, start, count, stride)
    return new
 end
 
+function array.array(extent, dtype)
+   local dtype = dtype or 'double'
+   local N = 1
+   for i,n in ipairs(extent) do N = N * n end
+   local buf = buffer.new_buffer(N * buffer.sizeof(buffer[dtype]))
+   return array.view(buf, dtype, extent)
+end
+
+--------------------------------------------------------------------------------
+-- Module test suite
+--------------------------------------------------------------------------------
 local function test1()
    local vec = array.vector{0.0, 1.0, 2.0}
    assert(#vec == 3)
@@ -213,6 +308,19 @@ local function test3()
    assert(view0:contiguous())
    assert(not view1:contiguous())
    assert(not view2:contiguous())
+   assert(#view2:copy() == #view2)
+end
+local function test4()
+   local A0 = array.array{10,10,10}
+   local A1 = array.array{10,10,10}
+   local V0 = A0:vector()
+   local V1 = A1:vector()
+   A0[{{2,8},{2,8},{2,8}}] = A1[{{2,8},{2,8},{2,8}}]
+   for i=0,#V0-1 do
+      if V0[i] ~= 0 then
+	 assert(V0[i] == V1[i])
+      end
+   end
 end
 
 
@@ -225,5 +333,6 @@ else
    test1()
    test2()
    test3()
+   test4()
    print(debug.getinfo(1).source, ": All tests passed")
 end

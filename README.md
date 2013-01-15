@@ -8,21 +8,30 @@ it flexible interaction with HDF5.
 # Example usage
 
 ## High-level interface
+
+This demonstrates the simplest usage of the high-level HDF5 interface. It
+creates a file with a (numeric array-valued) data set named 'the_dataset' and
+group named 'the_group' containing a (string-valued) data set called
+'the_message'.
+
     local hdf5 = require 'LuaHDF5'
-    local buffer = require 'buffer'
+    local array = require 'array'
 
-    local buf = buffer.new_buffer(4*4*8 * buffer.sizeof('double'))
-    local my_data = buffer.view(buf, 'double', {0,0,0}, {4,4,8})
-    local h5f = hdf5.File("outfile.h5", "w")
-    h5f["dataset"] = my_data
-
-    local group1 = h5f:require_group("group1")
-    group1["message"] = "here is the message"
-
-    h5f:close()
+    local the_array = array.array({16,32,64}, 'double')
+    local the_h5file = hdf5.File("outfile.h5", "w")
+    local the_group = the_h5file:require_group("the_group")
+    the_group["the_message"] = "here is the message"
+    the_h5file["the_dataset"] = the_array
+    the_h5file:close()
 
 
 ## Low-level bindings
+
+Access to the low-level HDF5 library follows exactly the HDF5 API specification,
+in other words there is one-to-one mapping between (most) HDF5 functions and
+their low-level Lua wrappers. Some HDF5 functions are not wrapped, although they
+can be recognized by the wrapper generator `parse.py` with easy modifications.
+
     local H5 = require 'HDF5'
     local buffer = require 'buffer'
 
@@ -64,10 +73,6 @@ Additional compile flags are optional:
 Optionally, you may install local Lua sources by typing `make lua`.
 
 
-Run `python parse.py` in order to generate wrapper code for your own HDF5
-library version.
-
-
 Run `make`.
 
 
@@ -99,7 +104,7 @@ you are using it.
 
 The Lua HDF5 wrappers are licensed under the same terms as Lua itself.
 
-Copyright (c) 2012, Jonathan Zrake
+Copyright (c) 2012, Jonathan Zrake <jonathan.zrake@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in

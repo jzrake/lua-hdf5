@@ -105,6 +105,14 @@ function Base:close()
    end
 end
 
+function Base:class()
+   return self._type
+end
+
+function Base:name()
+   return self._name
+end
+
 
 --------------------------------------------------------------------------------
 -- Indexable methods
@@ -159,15 +167,25 @@ function Indexable:__newindex__(key, value)
    if type(value) == 'string' then
       local targ = self._hid
       local data = buffer.new_buffer(value)
-
       local fspc = H5.H5Screate(H5.H5S_SCALAR)
       local strn = H5.H5Tcopy(H5.H5T_C_S1)
+
       H5.H5Tset_size(strn, #data)
       local dset = H5.H5Dcreate2(targ, key, strn, fspc, hp0, hp0, hp0)
 
       H5.H5Dwrite(dset, strn, fspc, fspc, hp0, data)
       H5.H5Dclose(dset)
       H5.H5Tclose(strn)
+      H5.H5Sclose(fspc)
+
+   elseif type(value) == 'number' then
+      local targ = self._hid
+      local fspc = H5.H5Screate(H5.H5S_SCALAR)
+      local data = array.vector{value}
+      local dset = H5.H5Dcreate2(targ, key, H5.H5T_NATIVE_DOUBLE, fspc,
+				 hp0, hp0, hp0)
+      H5.H5Dwrite(dset, H5.H5T_NATIVE_DOUBLE, fspc, fspc, hp0, data:buffer())
+      H5.H5Dclose(dset)
       H5.H5Sclose(fspc)
 
    elseif value.buffer and value.dtype and value.selection then
@@ -221,6 +239,9 @@ function hdf5.Group:__tostring__()
 end
 
 
+--------------------------------------------------------------------------------
+-- HDF5 DataSet class methods
+--------------------------------------------------------------------------------
 function hdf5.DataSet:read(buf, mspace, fspace)
    -----------------------------------------------------------------------------
    -- Read from the data set into `buf` according to source `fspace` and
@@ -289,7 +310,13 @@ function hdf5.DataSet:value()
    local tcls = self:get_type():type_class()
    if tcls == 'string' then return tostring(self:read())
    elseif tcls == 'float' then
-      return array.view(self:read(), tstr, space:get_extent())
+      local extent = space:get_extent()
+      local dtype = buffer[self:get_type():type_string()]
+      if #extent == 0 then -- scalar data set
+	 return buffer.get_typed(self:read(), dtype, 0)
+      else
+	 return array.view(self:read(), tstr, extent)
+      end
    else error("DataSet:could not infer a Lua type from the data set")
    end
 end
@@ -358,6 +385,7 @@ function hdf5.DataSet:__tostring__()
 end
 
 function hdf5.DataSet:__index__(slice)
+   local slice = slice or { }
    if self._hid == 0 then
       return nil
    elseif type(slice) == 'table' then
@@ -380,6 +408,7 @@ function hdf5.DataSet:__index__(slice)
       local rank = #extent
       local start, stride, count, block = { }, { }, { }, { }
       for i=1,rank do
+	 slice[i] = slice[i] or { }
 	 start[i] = slice[i][1] or 0
 	 stride[i] = slice[i][3] or 1
 	 count[i] = ((slice[i][2] or extent[i]) - start[i]) / stride[i]
@@ -390,9 +419,6 @@ function hdf5.DataSet:__index__(slice)
       local buf = buffer.new_buffer(mspace:get_select_npoints() *
 				    self:get_type():get_size())
       self:read(buf, mspace, fspace)
-      for i=1,rank do
-	 start[i] = 0
-      end
       return array.view(buf, htype:type_string(), count)
    end
 end
@@ -644,7 +670,7 @@ function hdf5.DataSet:__init__(parent, name, mode, opts)
       local dtype = hdf5.DataType(opts.dtype)
 
       if H5.H5Lexists(parent._hid, name, hp0) then
-       	 local err = H5.H5Ldelete(parent._hid, name)
+       	 local err = H5.H5Ldelete(parent._hid, name, hp0)
        	 if #err < 0 then
        	    error("DataSet:failed to clobber existing data set")
        	 else
