@@ -71,6 +71,11 @@ function array.vector(arg, dtype)
    function new:copy(extent, start, count, stride)
       return self:view():copy():vector()
    end
+   function new:table()
+      local ret = { }
+      for i=1,#self do ret[i] = self[i-1] end
+      return ret
+   end
    function new:set_printn(n) self._printn = n end
    setmetatable(new, vector)
 
@@ -210,17 +215,31 @@ function array.view(buf, dtype, extent, start, count, stride)
       return true
    end
    function new:copy()
-      local buf = buffer.extract(self._buf, self._rank,
-				 array.sizeof(self._dtype),
-				 array.vector(self._extent, 'int')._buf,
-				 array.vector(self._start, 'int')._buf,
-				 array.vector(self._stride, 'int')._buf,
-				 array.vector(self._count, 'int')._buf)
-      return array.view(buf, self._dtype, self._count)
+      local copy = array.array(self:shape(), self:dtype())
+      local exten0 = array.vector(copy._extent, 'int'):buffer()
+      local start0 = array.vector(copy._start, 'int'):buffer()
+      local strid0 = array.vector(copy._stride, 'int'):buffer()
+      local count0 = array.vector(copy._count, 'int'):buffer()
+      local exten1 = array.vector(self._extent, 'int'):buffer()
+      local start1 = array.vector(self._start, 'int'):buffer()
+      local strid1 = array.vector(self._stride, 'int'):buffer()
+      local count1 = array.vector(self._count, 'int'):buffer()
+      local buf0 = copy._buf
+      local buf1 = self._buf
+      buffer.copy(buf0, exten0, start0, strid0, count0,
+		  buf1, exten1, start1, strid1, count1,
+		  array.sizeof(self._dtype))
+      return copy
    end
    function new:vector()
       local arr = self:contiguous() and self or self:copy()
       return array.vector(arr._buf, arr._dtype)
+   end
+   function new:table()
+      local vec = self:vector()
+      local ret = { }
+      for i=1,#vec do ret[i] = vec[i-1] end
+      return ret
    end
    setmetatable(new, view)
 
@@ -289,6 +308,7 @@ local function test3()
    assert(view0:contiguous())
    assert(not view1:contiguous())
    assert(not view2:contiguous())
+   assert(#view2:copy() == #view2)
 end
 local function test4()
    local A0 = array.array{10,10,10}

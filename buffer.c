@@ -139,78 +139,126 @@ static int buffer_isbuffer(lua_State *L)
   return 1;
 }
 
-static int buffer_extract(lua_State *L)
+static int buffer_copy(lua_State *L)
 /* -----------------------------------------------------------------------------
- * Extracts a slice from B1, and returns it as the contiguous array 'B0'
- * -----------------------------------------------------------------------------
- * 1. @buf    : [buffer] a buffer instance (source)
- * 2. @rank   : [unsigned int] dimensionality of buf
- * 3. @byte   : [unsigned int] number of bytes at each element
- * 4. @extent : [int*] buf size along each axis
- * 5. @start  : [int*] starting indices into buf
- * 6. @stride : [int*] number of elements to skip along each each axis
- * 7. @count  : [int*] number of elements to select along each axis
  *
- * Returns
- * 1. dst     : contiguous slice extracted from buf
+ * Copy a `rank1` memory selection of `buf1` into a `rank0` memory selection of
+ * `buf0`.
+ *
  * -----------------------------------------------------------------------------
  */
 {
-  int d, M=0, m=0, ntot=1;
+  int d, M0=0, M1=0, ntot0=1, ntot1=1;
+  char *buf0 = (char*) luaL_checkudata(L, 1, "buffer");
+  int *exten0 = (int*) luaL_checkudata(L, 2, "buffer");
+  int *start0 = (int*) luaL_checkudata(L, 3, "buffer");
+  int *strid0 = (int*) luaL_checkudata(L, 4, "buffer");
+  int *count0 = (int*) luaL_checkudata(L, 5, "buffer");
+  char *buf1 = (char*) luaL_checkudata(L, 6, "buffer");
+  int *exten1 = (int*) luaL_checkudata(L, 7, "buffer");
+  int *start1 = (int*) luaL_checkudata(L, 8, "buffer");
+  int *strid1 = (int*) luaL_checkudata(L, 9, "buffer");
+  int *count1 = (int*) luaL_checkudata(L,10, "buffer");
+  unsigned int byte = luaL_checkunsigned(L, 11);
 
-  char *buf = (char*) luaL_checkudata(L, 1, "buffer");
-  unsigned int rank = luaL_checkunsigned(L, 2);
-  unsigned int byte = luaL_checkunsigned(L, 3);
-  int *exten = (int*) lua_touserdata(L, 4); luaL_checktype(L, 4, LUA_TUSERDATA);
-  int *start = (int*) lua_touserdata(L, 5); luaL_checktype(L, 5, LUA_TUSERDATA);
-  int *strid = (int*) lua_touserdata(L, 6); luaL_checktype(L, 6, LUA_TUSERDATA);
-  int *count = (int*) lua_touserdata(L, 7); luaL_checktype(L, 7, LUA_TUSERDATA);
+  int rank0 = lua_rawlen(L, 2) / sizeof(int);
+  int rank1 = lua_rawlen(L, 7) / sizeof(int);
 
-  for (d=0; d<rank; ++d) {
-    ntot *= count[d];
+  for (d=0; d<rank0; ++d) {
+    ntot0 *= count0[d];
   }
-  if (ntot > lua_rawlen(L, 1) / byte) {
+  for (d=0; d<rank1; ++d) {
+    ntot1 *= count1[d];
+  }
+
+  if (ntot0 != ntot1) {
+    luaL_error(L, "source and destination selections have different sizes");
+  }
+  if (ntot0 * byte > lua_rawlen(L, 1)) {
     luaL_error(L, "buffer: slice is to large for source buffer");
   }
-  if (rank != lua_rawlen(L, 4) / sizeof(int) ||
-      rank != lua_rawlen(L, 5) / sizeof(int) ||
-      rank != lua_rawlen(L, 6) / sizeof(int) ||
-      rank != lua_rawlen(L, 7) / sizeof(int)) {
-    luaL_error(L, "buffer: slice description has wrong size");
+  if (ntot1 * byte > lua_rawlen(L, 6)) {
+    luaL_error(L, "buffer: slice is to large for desination buffer");
   }
 
-  int *J = (int*) malloc(rank * sizeof(int)); // current indices into buffer
-  int *N = (int*) malloc(rank * sizeof(int)); // number of elements to select
-  int *S = (int*) malloc(rank * sizeof(int)); // skips along each axis
-  char *dst = (char*) buf_push_buffer(L, NULL, ntot * byte); // destination
+  if (rank0 != lua_rawlen(L, 3) / sizeof(int) ||
+      rank0 != lua_rawlen(L, 4) / sizeof(int) ||
+      rank0 != lua_rawlen(L, 5) / sizeof(int)) {
+    luaL_error(L, "buffer: slice description for source has wrong size");
+  }
+  if (rank1 != lua_rawlen(L, 8) / sizeof(int) ||
+      rank1 != lua_rawlen(L, 9) / sizeof(int) ||
+      rank1 != lua_rawlen(L,10) / sizeof(int)) {
+    luaL_error(L, "buffer: slice description for destination has wrong size");
+  }
 
-  for (d=0; d<rank; ++d) {
-    J[d] = 0;
-    N[d] = count[d];
+  int *J0 = (int*) malloc(rank0 * sizeof(int)); // current indices into buffer
+  int *N0 = (int*) malloc(rank0 * sizeof(int)); // number of elements to select
+  int *S0 = (int*) malloc(rank0 * sizeof(int)); // skips along each axis
+
+  int *J1 = (int*) malloc(rank1 * sizeof(int));
+  int *N1 = (int*) malloc(rank1 * sizeof(int));
+  int *S1 = (int*) malloc(rank1 * sizeof(int));
+
+
+  for (d=0; d<rank0; ++d) {
+    J0[d] = 0;
+    N0[d] = count0[d];
   }
-  S[rank-1] = 1;
-  for (d=rank-2; d>=0; --d) {
-    S[d] = S[d+1] * exten[d+1];
+
+  for (d=0; d<rank1; ++d) {
+    J1[d] = 0;
+    N1[d] = count1[d];
   }
-  while (J[0] < N[0]) {
-    M = 0;
-    for (d=0; d<rank; ++d) {
-      M += (J[d] * strid[d] + start[d]) * S[d];
+
+  S0[rank0-1] = 1;
+  S1[rank1-1] = 1;
+
+  for (d=rank0-2; d>=0; --d) {
+    S0[d] = S0[d+1] * exten0[d+1];
+  }
+  for (d=rank0-2; d>=0; --d) {
+    S1[d] = S1[d+1] * exten1[d+1];
+  }
+
+  while (J0[0] < N0[0]) {
+
+    M0 = 0;
+    M1 = 0;
+
+    for (d=0; d<rank0; ++d) {
+      M0 += (J0[d] * strid0[d] + start0[d]) * S0[d];
     }
-    memcpy(dst + (m++)*byte, buf + M*byte, byte);
-    ++J[rank-1];
-    for (d=rank-1; d!=0; --d) {
-      if (J[d] == N[d]) {
-	J[d] = 0;
-	++J[d-1];
+    for (d=0; d<rank1; ++d) {
+      M1 += (J1[d] * strid1[d] + start1[d]) * S1[d];
+    }
+
+    memcpy(buf0 + M0*byte, buf1 + M1*byte, byte);
+
+    ++J0[rank0-1];
+    ++J1[rank1-1];
+
+    for (d=rank0-1; d!=0; --d) {
+      if (J0[d] == N0[d]) {
+	J0[d] = 0;
+	++J0[d-1];
+      }
+    }
+    for (d=rank1-1; d!=0; --d) {
+      if (J1[d] == N1[d]) {
+	J1[d] = 0;
+	++J1[d-1];
       }
     }
   }
 
-  free(J);
-  free(N);
-  free(S);
-  return 1;
+  free(J0);
+  free(N0);
+  free(S0);
+  free(J1);
+  free(N1);
+  free(S1);
+  return 0;
 }
 
 
@@ -263,7 +311,7 @@ int luaopen_buffer(lua_State *L)
     {"light", buffer_light},
     {"get_typed", buffer_get_typed},
     {"set_typed", buffer_set_typed},
-    {"extract", buffer_extract},
+    {"copy", buffer_copy},
     {"isbuffer", buffer_isbuffer},
     {NULL, NULL}};
 
