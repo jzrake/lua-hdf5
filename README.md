@@ -10,16 +10,14 @@ it flexible interaction with HDF5.
 ## High-level interface
     local hdf5 = require 'LuaHDF5'
     local buffer = require 'buffer'
+    local array = require 'array'
 
-    local buf = buffer.new_buffer(4*4*8 * buffer.sizeof('double'))
-    local my_data = buffer.view(buf, 'double', {0,0,0}, {4,4,8})
-    local h5f = hdf5.File("outfile.h5", "w")
-    h5f["dataset"] = my_data
-
-    local group1 = h5f:require_group("group1")
-    group1["message"] = "here is the message"
-
-    h5f:close()
+    local the_array = array.array({16,32,64}, 'double')
+    local the_h5file = hdf5.File("outfile.h5", "w")
+    local the_group = the_h5file:require_group("the_group")
+    the_group["the_message"] = "here is the message"
+    the_h5file["the_dataset"] = the_array
+    the_h5file:close()
 
 
 ## Low-level bindings
