@@ -11,14 +11,16 @@ print "[HDF5 Parser] using Makefile.in:", Makefile_in
 verbose = False # print more stuff
 
 # Read the Makefile.in
-Makefile_in_dict = dict([tuple(p) for p in
-                         ["".join([c for c in x if c not in [" ", "\n"]]).split('=')
-                          for x in [d for d in open(Makefile_in).readlines() if
-                                    d.strip()]]])
+Makefile_in_dict = { }
+for line in open(Makefile_in):
+    line = line[:line.find('#')]
+    if line:
+        k, v = line.replace(' ', '').split('=')
+        Makefile_in_dict[k] = v
 
 hdf5_inc = Makefile_in_dict.get('HDF_HOME', '/usr/local') + "/include"
-use_mpio = Makefile_in_dict.get('USE_MPIO', 'False') # Include MPI constants and functions
-use_mpio = eval(use_mpio)
+use_mpio = Makefile_in_dict.get('USE_MPIO', '0') # Include MPI constants and functions
+use_mpio = int(use_mpio)
 print "[HDF5 Parser] USE_MPIO:", use_mpio
 
 # Function prototypes not to wrap
