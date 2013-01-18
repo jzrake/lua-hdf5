@@ -259,7 +259,7 @@ function hdf5.DataSet:read(buf, mspace, fspace)
    end
    local dxpl = H5.H5Pcreate(H5.H5P_DATASET_XFER)
    local mpio_mode = H5['H5FD_MPIO_'..(self._mpio.requested_mode or '')]
-   if mpio_mode then
+   if mpio_mode and H5.H5Pset_dxpl_mpio then
       H5.H5Pset_dxpl_mpio(dxpl, mpio_mode)
    end
    local err = H5.H5Dread(self._hid, htype._hid, mspace._hid, fspace._hid, dxpl,
@@ -287,7 +287,7 @@ function hdf5.DataSet:write(buf, mspace, fspace)
    end
    local dxpl = H5.H5Pcreate(H5.H5P_DATASET_XFER)
    local mpio_mode = H5['H5FD_MPIO_'..(self._mpio.requested_mode or '')]
-   if mpio_mode then
+   if mpio_mode and H5.H5Pset_dxpl_mpio then
       H5.H5Pset_dxpl_mpio(dxpl, mpio_mode)
    end
    local err = H5.H5Dwrite(self._hid, htype._hid, mspace._hid, fspace._hid, dxpl,
