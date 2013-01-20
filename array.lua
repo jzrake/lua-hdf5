@@ -322,7 +322,11 @@ local function test4()
       end
    end
 end
-
+local function test5()
+   local A0 = array.array{10,10,10}
+   local A1 = array.array{10,10,10,10}
+   A0[nil] = A1[{nil,nil,nil,{2,3}}]
+end
 
 --------------------------------------------------------------------------------
 -- Run test or export module
@@ -334,5 +338,6 @@ else
    test2()
    test3()
    test4()
+   test5()
    print(debug.getinfo(1).source, ": All tests passed")
 end

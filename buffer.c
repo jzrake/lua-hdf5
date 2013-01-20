@@ -217,7 +217,7 @@ static int buffer_copy(lua_State *L)
   for (d=rank0-2; d>=0; --d) {
     S0[d] = S0[d+1] * exten0[d+1];
   }
-  for (d=rank0-2; d>=0; --d) {
+  for (d=rank1-2; d>=0; --d) {
     S1[d] = S1[d+1] * exten1[d+1];
   }
 
