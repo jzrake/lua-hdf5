@@ -8,10 +8,11 @@
 #include "lauxlib.h"
 
 enum { 
-  BUFFER_TYPE_INT=1,
-  BUFFER_TYPE_CHAR=2,
-  BUFFER_TYPE_FLOAT=3,
-  BUFFER_TYPE_DOUBLE=4,
+  BUFFER_TYPE_CHAR=1,
+  BUFFER_TYPE_INT=2,
+  BUFFER_TYPE_LONG=3,
+  BUFFER_TYPE_FLOAT=4,
+  BUFFER_TYPE_DOUBLE=5,
 } ;
 
 // -----------------------------------------------------------------------------
@@ -61,6 +62,7 @@ static int buffer_sizeof(lua_State *L)
   switch (T) {
   case BUFFER_TYPE_CHAR: s = sizeof(char); break;
   case BUFFER_TYPE_INT: s = sizeof(int); break;
+  case BUFFER_TYPE_LONG: s = sizeof(long); break;
   case BUFFER_TYPE_FLOAT: s = sizeof(float); break;
   case BUFFER_TYPE_DOUBLE: s = sizeof(double); break;
   default:
@@ -88,6 +90,7 @@ static int buffer_get_typed(lua_State *L)
   switch (T) {
   case BUFFER_TYPE_CHAR: CASE(char); break;
   case BUFFER_TYPE_INT: CASE(int); break;
+  case BUFFER_TYPE_LONG: CASE(long); break;
   case BUFFER_TYPE_FLOAT: CASE(float); break;
   case BUFFER_TYPE_DOUBLE: CASE(double); break;
   default:
@@ -116,6 +119,7 @@ static int buffer_set_typed(lua_State *L)
   switch (T) {
   case BUFFER_TYPE_CHAR: CASE(char); break;
   case BUFFER_TYPE_INT: CASE(int); break;
+  case BUFFER_TYPE_LONG: CASE(long); break;
   case BUFFER_TYPE_FLOAT: CASE(float); break;
   case BUFFER_TYPE_DOUBLE: CASE(double); break;
   default:
@@ -332,6 +336,7 @@ int luaopen_buffer(lua_State *L)
 #define REG_NUMBER(s,t) lua_pushnumber(L, s); lua_setfield(L, -2, t);
   REG_NUMBER(BUFFER_TYPE_CHAR, "char");
   REG_NUMBER(BUFFER_TYPE_INT, "int");
+  REG_NUMBER(BUFFER_TYPE_LONG, "long");
   REG_NUMBER(BUFFER_TYPE_FLOAT, "float");
   REG_NUMBER(BUFFER_TYPE_DOUBLE, "double");
 #undef REG_NUMBER

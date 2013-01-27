@@ -154,7 +154,7 @@ local object = class('object')
 function object:__index__(key)
    return resolve(self, key)
 end
-function object:__newindex__(key)
+function object:__newindex__(key, value)
    self.__dict__[key] = value
 end
 function object:__tostring__()
@@ -163,6 +163,9 @@ function object:__tostring__()
 end
 function object:__pairs__()
    error('object does not support iteration')
+end
+function object:__call__()
+   error('object does not support call')
 end
 function object:__gc__()
    -- warning! __gc__ is only triggered for the first resolved __gc__ method in
