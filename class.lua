@@ -110,7 +110,7 @@ function class_meta:__call(...)
    return new
 end
 function class_meta:__index(key)
-   return resolve(key, {self}, self.__base__)
+   return resolve(self, key)
 end
 function class_meta:__newindex(key, value)
    self.__dict__[key] = value
