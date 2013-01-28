@@ -9,12 +9,15 @@
 -- Exports the following functions:
 -- 
 -- + class
+-- + super
 -- + isclass
 -- + isinstance
+-- + issubclass
 -- + getattrib
 -- + setattrib
 -- + classname
--- + super
+-- + getattrib
+-- + setattrib
 -- 
 -- and the following classes:
 --
@@ -50,14 +53,15 @@ end
 --------------------------------------------------------------------------------
 -- Module functions
 --------------------------------------------------------------------------------
-local function isclass(c)
-   return getmetatable(c) == class_meta
-end
-local function isinstance(instance, class)
-   return instance.__class__ == class
-end
-local function classname(A)
-   return isclass(A) and A.__name__ or A.__class__.__name__
+local function class(name, ...)
+   local base = {...}
+   if #base == 0 and name ~= 'object' then
+      base[1] = class_module.object
+   end
+   return setmetatable({__name__=name,
+                        __base__=base,
+                        __dict__={ },
+			__class__={__dict__={ }}}, class_meta)
 end
 local function super(instance, base)
    if not base then
@@ -73,24 +77,23 @@ local function super(instance, base)
    end
    -- returns nil if super call cannot be made
 end
+local function isclass(c)
+   return getmetatable(c) == class_meta
+end
+local function isinstance(instance, class)
+   return instance.__class__ == class
+end
 local function issubclass(instance, base)
    return super(instance, base) and true or false
-end
-local function setattrib(instance, key, value)
-   instance.__dict__[key] = value
 end
 local function getattrib(instance, key)
    return resolve(instance, key)
 end
-local function class(name, ...)
-   local base = {...}
-   if #base == 0 and name ~= 'object' then
-      base[1] = class_module.object
-   end
-   return setmetatable({__name__=name,
-                        __base__=base,
-                        __dict__={ },
-			__class__={__dict__={ }}}, class_meta)
+local function setattrib(instance, key, value)
+   instance.__dict__[key] = value
+end
+local function classname(A)
+   return isclass(A) and A.__name__ or A.__class__.__name__
 end
 
 --------------------------------------------------------------------------------
@@ -175,14 +178,15 @@ end
 --------------------------------------------------------------------------------
 -- Class module definition
 --------------------------------------------------------------------------------
-class_module.object = object
 class_module.class = class
+class_module.super = super
 class_module.isclass = isclass
 class_module.isinstance = isinstance
+class_module.issubclass = issubclass
 class_module.getattrib = getattrib
 class_module.setattrib = setattrib
 class_module.classname = classname
-class_module.super = super
+class_module.object = object
 
 --------------------------------------------------------------------------------
 -- Unit test
