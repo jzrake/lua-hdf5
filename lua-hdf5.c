@@ -71,7 +71,7 @@ static void lh5_push_H5O_info_t(lua_State *L, H5O_info_t id)
 }
 static int _new_H5O_info_t(lua_State *L)
 {
-  H5O_info_t id;
+  H5O_info_t id = { };
   lh5_push_H5O_info_t(L, id);
   return 1;
 }

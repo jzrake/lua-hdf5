@@ -273,7 +273,8 @@ header_data("F", wrap, regtype="number", linestart="define")
 header_data("S", wrap, regtype="number", linestart="space")
 header_data("S", wrap, regtype="number", linestart="define",
             byhand={'H5S_UNLIMITED': -1})
-header_data("T", wrap, regtype="hid", linestart="define")
+header_data("T", wrap, regtype="hid", linestart="define",
+            byhand={'H5T_VARIABLE': -1})
 header_data("T", wrap, regtype="number", linestart="space")
 header_data("P", wrap, regtype="hid", linestart="define")
 header_data("O", wrap, regtype="hid", linestart="define")
