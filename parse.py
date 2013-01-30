@@ -15,8 +15,9 @@ Makefile_in_dict = { }
 for line in open(Makefile_in):
     line = line[:line.find('#')]
     if line:
-        k, v = line.replace(' ', '').split('=')
-        Makefile_in_dict[k] = v
+        if line.find('HDF_HOME') != -1 or line.find('USE_MPIO') != -1:
+            k, v = line.replace(' ', '').split('=')
+            Makefile_in_dict[k] = v
 
 hdf5_inc = Makefile_in_dict.get('HDF_HOME', '/usr/local') + "/include"
 use_mpio = Makefile_in_dict.get('USE_MPIO', '0') # Include MPI constants and functions
