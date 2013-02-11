@@ -119,7 +119,7 @@ function class_meta:__newindex(key, value)
    self.__dict__[key] = value
 end
 function class_meta:__tostring(key, value)
-   return string.format('<Class: %s[%s]>', classname(self),
+   return string.format('<Class: %s @ %s>', classname(self),
                         string.sub(tostring(self.__dict__), 8))
 end
 
@@ -161,7 +161,7 @@ function object:__newindex__(key, value)
    self.__dict__[key] = value
 end
 function object:__tostring__()
-   return string.format('<Class instance: %s[%s]>', classname(self),
+   return string.format('<Class instance: %s @ %s>', classname(self),
                         string.sub(tostring(self.__dict__), 8))
 end
 function object:__pairs__()
