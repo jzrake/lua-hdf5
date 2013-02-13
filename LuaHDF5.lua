@@ -7,11 +7,16 @@
 local hdf5 = { } -- module table
 --------------------------------------------------------------------------------
 
-local H5 = require 'HDF5'
-local buffer = require 'buffer'
-local array = require 'array'
-local oo = require 'class'
-local hp0 = H5.H5P_DEFAULT
+local H5      = require 'HDF5'
+local buffer  = require 'buffer'
+local array   = require 'array'
+local oo      = require 'class'
+local hp0     = H5.H5P_DEFAULT
+
+if not next(H5) then
+   print('warning! HDF5 was imported but is not available')
+   return { }
+end
 
 local Base      = oo.class('HDF5_BaseClass')
 local Indexable = oo.class('HDF5_BaseClass', Base)
