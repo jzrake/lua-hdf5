@@ -16,6 +16,7 @@
 -- + getattrib
 -- + setattrib
 -- + classname
+-- + mro (method resolution order)
 -- + getattrib
 -- + setattrib
 -- 
@@ -35,20 +36,76 @@ local class_module = { }
 --------------------------------------------------------------------------------
 -- Private utility functions
 --------------------------------------------------------------------------------
+local function deque()
+   --
+   -- Return an object which acts as a minimal double-ended queue. That is, it
+   -- may be used as a queue or a stack by appropriate calls to the
+   -- [push|pop]_[front|back] functions. This function is only here to aid the
+   -- building of MRO's.
+   --
+   local self = { }
+   self._items = { }
+   self._front = 0
+   self._back = 0
+   function self:push_front(item)
+      if item == nil then
+	 error('cannot push nil onto the deque')
+      end
+      self._front = self._front - 1
+      self._items[self._front] = item
+   end
+   function self:pop_front()
+      local item = self._items[self._front]
+      self._items[self._front] = nil
+      if item then
+	 self._front = self._front + 1
+      end
+      return item
+   end
+   function self:push_back(item)
+      if item == nil then
+	 error('cannot push nil onto the deque')
+      end
+      self._items[self._back] = item
+      self._back = self._back + 1
+   end
+   function self:pop_back()
+      local item = self._items[self._back-1]
+      self._items[self._back-1] = nil
+      if item then
+	 self._back = self._back - 1
+      end
+      return item
+   end
+   function self:size()
+      return self._back - self._front
+   end
+   function self:items()
+      return pairs(self._items)
+   end
+   function self:empty()
+      return not (next(self._items) and true or false)
+   end
+   return self
+end
+
+
 local function resolve(obj, key)
    -- 
    -- Attempt to resolve attribute `key` of `obj` which may be a class or
-   -- instance. Recurse through __base__ table depth-first, and return nil if
-   -- attribute is not found. Do not invoke the __index__ meta-method in doing
-   -- so.
+   -- instance. Recurse through __base__ table breadth-first using the MRO, and
+   -- return nil if attribute is not found. Do not invoke the __index__
+   -- meta-method in doing so.
    -- 
    local val = obj.__dict__[key] or obj.__class__.__dict__[key]
    if val then return val end
-   for i,b in ipairs(obj.__base__) do
-      local val = resolve(b, key)
+   for _,b in ipairs(obj.__class__.__mro__) do
+      val = b.__dict__[key]
       if val then return val end
    end
+   return nil
 end
+
 
 --------------------------------------------------------------------------------
 -- Module functions
@@ -58,10 +115,27 @@ local function class(name, ...)
    if #base == 0 and name ~= 'object' then
       base[1] = class_module.object
    end
+
+   local mrovec = { }
+   local mroset = { }
+   local Q = deque()
+   for i,b in ipairs(base) do Q:push_back(b) end
+
+   while not Q:empty() do
+      local c = Q:pop_front()
+      for _,b in ipairs(c.__base__) do
+	 Q:push_back(b)
+      end
+      if not mroset[c] then
+	 mroset[c] = c
+	 table.insert(mrovec, c)
+      end
+   end
    return setmetatable({__name__=name,
                         __base__=base,
+			__mro__=mrovec,
                         __dict__={ },
-			__class__={__dict__={ }}}, class_meta)
+			__class__={__dict__={ }, __mro__={ }}}, class_meta)
 end
 local function super(instance, base)
    if not base then
@@ -94,6 +168,9 @@ local function setattrib(instance, key, value)
 end
 local function classname(A)
    return isclass(A) and A.__name__ or A.__class__.__name__
+end
+local function mro(A)
+   return A.__mro__
 end
 
 --------------------------------------------------------------------------------
@@ -186,6 +263,7 @@ class_module.issubclass = issubclass
 class_module.getattrib = getattrib
 class_module.setattrib = setattrib
 class_module.classname = classname
+class_module.mro = mro
 class_module.object = object
 
 --------------------------------------------------------------------------------
