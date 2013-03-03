@@ -124,7 +124,7 @@ end
 --------------------------------------------------------------------------------
 function Indexable:path(key)
    if not self._parent then
-      return '/' .. self._name
+      return self._name
    else
       return self._parent:path() .. '/' .. self._name
    end
@@ -677,9 +677,11 @@ function hdf5.DataSet:__init__(parent, name, mode, opts)
       if H5.H5Lexists(parent._hid, name, hp0) then
        	 local err = H5.H5Ldelete(parent._hid, name, hp0)
        	 if #err < 0 then
-       	    error("DataSet:failed to clobber existing data set")
+       	    error("DataSet:failed to clobber existing data set "
+		  ..parent:path()..'/'..name)
        	 else
-       	    print("DataSet:successfully clobbered existing data set")
+       	    print("DataSet:successfully clobbered existing data set "
+		  ..parent:path()..'/'..name)
        	 end
       end
       local dcpl = H5.H5Pcreate(H5.H5P_DATASET_CREATE)
