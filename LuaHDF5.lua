@@ -26,7 +26,7 @@ hdf5.Group     = oo.class('Group', Indexable)
 hdf5.DataSet   = oo.class('DataSet', Base)
 hdf5.DataSpace = oo.class('DataSpace', Base)
 hdf5.DataType  = oo.class('DataType', Base)
-
+hdf5.have_mpio = function() return H5.H5D_MPIO_COLLECTIVE ~= nil end
 
 local function mpio_stats(dxpl, mpio)
    -----------------------------------------------------------------------------
@@ -372,6 +372,9 @@ function hdf5.DataSet:get_type()
 end
 
 function hdf5.DataSet:set_mpio(mode)
+   if not H5['H5D_MPIO_'..mode:upper()] then
+      error("DataSet:set_mpio mode not recognized '"..mode.."'")
+   end
    self._mpio.requested_mode = mode
 end
 
@@ -610,7 +613,7 @@ function hdf5.File:__init__(name, mode, opts)
    local fcpl = H5.H5Pcreate(H5.H5P_FILE_CREATE)
    local fapl = H5.H5Pcreate(H5.H5P_FILE_ACCESS)
 
-   if opts.mpi then
+   if opts.mpi and H5.H5Pset_fapl_mpio then
       H5.H5Pset_fapl_mpio(fapl, opts.mpi.comm, opts.mpi.info)
    end
    if opts.align then
