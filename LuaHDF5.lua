@@ -72,6 +72,12 @@ local function mpio_stats(dxpl, mpio)
    )[H5.H5Pget_mpio_actual_io_mode(dxpl)]
 end
 
+local function clobber_if_H5Lexists(hid, name)
+   if H5.H5Lexists(hid, name, hp0) then
+      local err = H5.H5Ldelete(hid, name, hp0)
+   end
+end
+
 
 --------------------------------------------------------------------------------
 -- Base classes for meta-table and methods wrapping hid_t objects
@@ -170,6 +176,7 @@ function Indexable:__newindex__(key, value)
       error("Indexable:cannot assign to closed object")
    end
    if type(value) == 'string' then
+      clobber_if_H5Lexists(self._hid, key)
       local targ = self._hid
       local data = buffer.new_buffer(value)
       local fspc = H5.H5Screate(H5.H5S_SCALAR)
@@ -184,6 +191,7 @@ function Indexable:__newindex__(key, value)
       H5.H5Sclose(fspc)
 
    elseif type(value) == 'number' then
+      clobber_if_H5Lexists(self._hid, key)
       local targ = self._hid
       local fspc = H5.H5Screate(H5.H5S_SCALAR)
       local data = array.vector{value}
@@ -677,16 +685,8 @@ function hdf5.DataSet:__init__(parent, name, mode, opts)
       local space = hdf5.DataSpace(opts.shape, opts.max)
       local dtype = hdf5.DataType(opts.dtype)
 
-      if H5.H5Lexists(parent._hid, name, hp0) then
-       	 local err = H5.H5Ldelete(parent._hid, name, hp0)
-       	 if #err < 0 then
-       	    error("DataSet:failed to clobber existing data set "
-		  ..parent:path()..'/'..name)
-       	 else
-       	    print("DataSet:successfully clobbered existing data set "
-		  ..parent:path()..'/'..name)
-       	 end
-      end
+      clobber_if_H5Lexists(parent._hid, name)
+
       local dcpl = H5.H5Pcreate(H5.H5P_DATASET_CREATE)
       if opts.chunk then
        	 local c = H5.new_hsize_t_arr(opts.chunk)
