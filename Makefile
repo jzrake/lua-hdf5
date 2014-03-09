@@ -57,7 +57,7 @@ $(LVER) :
 		$(MAKE) install INSTALL_TOP=$(PWD)/$(LVER)
 	$(RM) $(LVER).tar.gz
 
-h5funcs.c :
+h5funcs.c : parse.py Makefile.in
 	python parse.py $(MAKEFILE_IN)
 
 lua-hdf5.o : lua-hdf5.c h5funcs.c

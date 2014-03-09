@@ -96,10 +96,10 @@ class FunctionPrototype(object):
                     "L, %d, \"HDF5::H5O_info_t\");" % (name, n+1))
             elif t == "H5T_direction_t":
                 get_lua_args.append(
-                    "H5T_class_t %s = luaL_checkinteger(L, %d);" % (name, n+1))
+                    "H5T_direction_t %s = luaL_checkinteger(L, %d);" % (name, n+1))
             elif t == "H5T_class_t":
                 get_lua_args.append(
-                    "H5T_direction_t %s = luaL_checkinteger(L, %d);" % (name, n+1))
+                    "H5T_class_t %s = luaL_checkinteger(L, %d);" % (name, n+1))
             elif t == "int":
                 get_lua_args.append(
                     "int %s = luaL_checkinteger(L, %d);" % (name, n+1))
